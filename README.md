@@ -2,7 +2,7 @@
 
 editor_options: markdown: wrap: 72 ---
 
-# EU Defence Spending Panel — Companion Repository
+# EU Defence Spending Panel — Code Repository
 
 **Interactive visualization of the data:** [pub.e-dnrs.org](https://pub.e-dnrs.org)
 
@@ -45,7 +45,7 @@ defence-spending-companion/
 ## Data Sources
 
 | Variable | Source | Coverage |
-|----|----|----|
+|------------------------|------------------------|------------------------|
 | Defence spending (% GDP) | World Bank WDI / SIPRI | 24 countries, 1995-2023 |
 | Government debt (% GDP) | IMF World Economic Outlook | 24 countries, 1995-2023 |
 | Fiscal deficit (% GDP) | IMF World Economic Outlook | 24 countries, 1995-2023 |
