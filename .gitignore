@@ -1,0 +1,54 @@
+# Aider
+.aider*
+
+# R history and session files
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Ruserdata
+
+# R package build artefacts
+*-Ex.R
+/*.tar.gz
+/*.Rcheck/
+
+# RStudio files
+.Rproj.user/
+
+# knitr and R Markdown cache
+*_cache/
+/cache/
+*.utf8.md
+*.knit.md
+
+# Vignettes
+vignettes/*.html
+vignettes/*.pdf
+
+# OAuth tokens
+.httr-oauth
+
+# R environment variables
+.Renviron
+
+# pkgdown site
+docs/
+
+# Translation temp files
+po/*~
+
+# RStudio Connect / Posit
+rsconnect/
+.positai
+
+# Pipeline outputs — not tracked in version control
+# Raw data downloads and processed outputs are reproduced by running
+# scripts/run_pipeline.R. Large binary files (RDS) are excluded.
+scripts/output/data/*.rds
+scripts/output/data/*.csv
+scripts/output/quality_reports/
+scripts/output/tables/
+
+# UCDP raw data — must be downloaded manually (see 06_download_ucdp.R)
+scripts/output/data/ucdp_ged_raw.csv
