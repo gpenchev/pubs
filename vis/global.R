@@ -8,6 +8,7 @@ library(leaflet.extras)
 library(DT)
 library(tibble)
 library(bslib)
+library(bsicons)
 library(here)
 
 source(here::here("vis", "helpers", "helper_data.R"))
@@ -21,8 +22,23 @@ source(here::here("vis", "modules", "mod_scatter.R"))
 source(here::here("vis", "modules", "mod_outliers.R"))
 source(here::here("vis", "modules", "mod_map.R"))
 source(here::here("vis", "modules", "mod_unitroot.R"))
+source(here::here("vis", "modules", "mod_help.R"))
 
-path_data <- here::here("scripts", "output", "data")
+path_data <- tryCatch(
+  here::here("scripts", "output", "data"),
+  error = function(e) file.path("scripts", "output", "data")
+)
+
+if (!dir.exists(path_data)) {
+  path_data <- tryCatch(
+    here::here("output", "data"),
+    error = function(e) file.path("output", "data")
+  )
+}
+
+if (!dir.exists(path_data)) {
+  path_data <- file.path(getwd(), "output", "data")
+}
 
 panel_data   <- load_panel(path_data)
 var_labels   <- get_variable_labels()

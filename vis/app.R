@@ -30,6 +30,11 @@ ui <- navbarPage(
   tabPanel(
     "Unit Root",
     mod_unitroot_ui("unitroot")
+  ),
+
+  tabPanel(
+    "Help",
+    mod_help_ui("help")
   )
 )
 
@@ -41,6 +46,7 @@ server <- function(input, output, session) {
   mod_scatter_server("scatter",     panel_data)
   mod_outliers_server("outliers",   panel_data)
   mod_unitroot_server("unitroot",   unitroot_results)
+  mod_help_server("help")
 }
 
 shinyApp(ui, server)
