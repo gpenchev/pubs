@@ -55,7 +55,6 @@ scripts/output/data/ucdp_ged_raw.csv
 
 
 # Personal / private — not uploaded to GitHub
-BEFORE_YOU_RUN.md
 methodology/models/
 models/
 presentation/
@@ -64,3 +63,4 @@ pubs.Rproj
 quarto/
 scripts_other/
 analysis/
+BEFORE_YOU_RUN.md
