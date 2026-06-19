@@ -1,0 +1,15 @@
+tab,section,md_file,heading
+about,intro,methodology/models/brief.md,full
+threat,results,models/results/threat_index.md,full
+threat,methods,methodology/models/threat.md,full
+threat,variables,methodology/models/variables.md,full
+estimation,results,models/results/m1_m12.md,full
+estimation,methods,methodology/models/models.md,full
+estimation,naive,methodology/models/naive.md,full
+robustness,results,models/results/diagnostics_breaks.md,full
+robustness,extra,models/results/revision_checks_ij.md,full
+robustness,weaknesses,methodology/models/weak.md,full
+issues,kinetic,methodology/models/weak.md,## 9.
+issues,threshold,methodology/models/weak.md,## 10.
+issues,truncation,models/results/m1_m12.md,## 1.
+issues,gpr_bias,models/results/gpr_results.md,## 7.

@@ -1,20 +1,26 @@
 # =============================================================================
 # 12_unit_root_check.R
 # Panel unit root and stationarity tests
-# Runs on v1 panel (before ParlGov merge).
-# Political variables (gov_left_right, gov_eu_position) are not yet present —
-# they are checked in 14_parlgov_quality_check.R.
+#
+# This script runs AFTER 16_merge_parlgov.R (step 5c in run_pipeline.R) so
+# that all variables — including gov_left_right and gov_eu_position — are
+# present in the panel. The panel loaded here is panel_parlgov.rds (the
+# fully merged panel), NOT panel_full.rds.
+#
 # Methods: ADF (per country), KPSS (per country), Im-Pesaran-Shin panel test
 # =============================================================================
 
 source(here::here("scripts", "00_setup.R"))
 options(bitmapType = "cairo")
 
-# --- Load panel ---------------------------------------------------------------
+# --- Load panel — must be the post-ParlGov panel ------------------------------
+# 03_merge_parlgov.R overwrites panel_full.rds in place (adds political vars).
+# After that script runs, panel_full.rds contains all variables including
+# gov_left_right and gov_eu_position.
 panel <- readRDS(file.path(path_data, "panel_full.rds"))
 
-# --- Variables to test — intersect with panel columns to avoid errors ---------
-vars_candidate <- c(
+# --- All required variables must be present -----------------------------------
+vars_required <- c(
   "defence_gdp",
   "debt_gdp",
   "deficit_gdp",
@@ -27,13 +33,17 @@ vars_candidate <- c(
   "gov_eu_position"
 )
 
-vars_to_test <- intersect(vars_candidate, names(panel))
-
-missing_vars <- setdiff(vars_candidate, vars_to_test)
+missing_vars <- setdiff(vars_required, names(panel))
 if (length(missing_vars) > 0) {
-  message("Variables not yet in panel (will be tested after ParlGov merge): ",
-          paste(missing_vars, collapse = ", "))
+  stop(
+    "Unit root check requires all variables to be present in panel_parlgov.rds.\n",
+    "Missing: ", paste(missing_vars, collapse = ", "), "\n",
+    "Ensure 03_merge_parlgov.R has run successfully before this script."
+  )
 }
+
+vars_to_test <- vars_required
+message("All ", length(vars_to_test), " required variables confirmed present in panel.")
 
 # --- ADF test per country per variable ----------------------------------------
 run_adf <- function(x) {

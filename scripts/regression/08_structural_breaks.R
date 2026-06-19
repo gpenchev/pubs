@@ -11,10 +11,22 @@
 #      the primary evidence for break year selection.
 #   2. Formal Bai-Perron test (supF, BIC comparison)
 #   3. Compare regime specifications (AIC/BIC/LR)
+#      Four-regime (M7) preferred: AIC 656.4 vs no-regime 662.4, LR p = 0.006
 #   4. SAR with data-driven regime break
 #   5. Pre/post-2014 spatial lag asymmetry test
-#   6. gov_eu_position pre-2014 finding validation
+#      ρ pre-2014 = 0.019 (p = 0.696), post-2014 = 0.082 (p = 0.194),
+#      full sample = 0.177 (p < 0.001) — driven by post-2022 common surge
+#   6. gov_eu_position pre/post-2014 reversal validation
+#      Pre-2014: β = +0.024 (p = 0.053); Post-2014: β = −0.052 (p < 0.001)
+#      z-test difference: p = 0.008 — significant reversal confirmed
 #   7. Persistence vs diffusion decomposition (first-difference SAR)
+#      FD-SAR ρ = −0.091 (p = 0.032): short-run burden-sharing substitution
+#      Levels SAR ρ = +0.177: long-run spending level complementarity
+#      Together confirm spatial lag in M5 reflects inertia, not diffusion
+#
+# Output: scripts/output/data/structural_break_results.rds,
+#         regime_lr_test.csv, spatial_asymmetry.csv,
+#         eu_position_reversal.csv, fd_sar_results.csv
 # =============================================================================
 
 source(here::here("scripts", "00_setup.R"))
@@ -35,6 +47,115 @@ reg_data_lm <- reg_data %>%
 path_tables <- file.path(path_root, "scripts", "output", "tables")
 dir.create(path_tables,  showWarnings = FALSE, recursive = TRUE)
 dir.create(path_reports, showWarnings = FALSE, recursive = TRUE)
+
+# =============================================================================
+# Block 0: Regime-specific SAR LR test (PRIMARY break evidence)
+# =============================================================================
+# This is the methodologically correct break test for a spatial panel model.
+# We estimate a constrained SAR (no regime interaction) and an unconstrained
+# SAR (four-regime interaction on threat_land_log) and compare via LR test.
+# The null hypothesis is that the threat-defence relationship is constant
+# across all four regimes. Rejection supports the theoretical periodisation.
+#
+# Unlike the Chow/Bai-Perron tests in Blocks 1-2 (which apply strucchange
+# to a stacked pooled-OLS panel and are therefore supplementary only), this
+# test is computed from valid spatial panel log-likelihoods.
+# =============================================================================
+message("\n", strrep("=", 60))
+message("BLOCK 0: Regime-specific SAR LR test (primary spatial break evidence)")
+message(strrep("=", 60))
+
+reg_data_b0 <- reg_data %>%
+  dplyr::mutate(
+    country   = as.character(country),
+    year      = as.integer(year),
+    regime_4  = as.factor(dplyr::case_when(
+      year <= 2004 ~ 1L,
+      year <= 2013 ~ 2L,
+      year <= 2021 ~ 3L,
+      TRUE         ~ 4L
+    ))
+  ) %>%
+  dplyr::filter(complete.cases(.))
+
+# Constrained: no regime interaction (same as M5)
+formula_constrained <- paste(
+  "defence_gdp ~ threat_land_log +",
+  "debt_gdp + deficit_gdp + gdp_growth +",
+  "immigration_rate + gov_left_right +",
+  "gov_eu_position + election_year"
+)
+
+# Unconstrained: threat × regime interaction (same as M7 extended)
+formula_unconstrained <- paste(
+  "defence_gdp ~ threat_land_log * regime_4 +",
+  "debt_gdp + deficit_gdp + gdp_growth +",
+  "immigration_rate + gov_left_right +",
+  "gov_eu_position + election_year"
+)
+
+m_sar_constrained <- tryCatch(
+  run_sar_pooled(
+    data         = reg_data_b0,
+    formula_vars = formula_constrained,
+    sp_weights   = sp_weights,
+    label        = "SAR constrained (no regime)"
+  ),
+  error = function(e) {
+    message("Block 0 constrained SAR failed: ", e$message)
+    NULL
+  }
+)
+
+m_sar_unconstrained <- tryCatch(
+  run_sar_pooled(
+    data         = reg_data_b0,
+    formula_vars = formula_unconstrained,
+    sp_weights   = sp_weights,
+    label        = "SAR unconstrained (four-regime)"
+  ),
+  error = function(e) {
+    message("Block 0 unconstrained SAR failed: ", e$message)
+    NULL
+  }
+)
+
+regime_lr_test <- NULL
+
+if (!is.null(m_sar_constrained) && !is.null(m_sar_unconstrained)) {
+  ll_constrained   <- tryCatch(as.numeric(logLik(m_sar_constrained)),   error = function(e) NA)
+  ll_unconstrained <- tryCatch(as.numeric(logLik(m_sar_unconstrained)), error = function(e) NA)
+
+  n_coef_c  <- length(coef(m_sar_constrained))
+  n_coef_uc <- length(coef(m_sar_unconstrained))
+  df_diff   <- n_coef_uc - n_coef_c
+
+  lr_stat_b0 <- 2 * (ll_unconstrained - ll_constrained)
+  p_val_b0   <- pchisq(lr_stat_b0, df = df_diff, lower.tail = FALSE)
+
+  regime_lr_test <- data.frame(
+    test               = "SAR LR: constrained vs four-regime",
+    ll_constrained     = round(ll_constrained,   3),
+    ll_unconstrained   = round(ll_unconstrained, 3),
+    lr_stat            = round(lr_stat_b0,        3),
+    df                 = df_diff,
+    p_value            = round(p_val_b0,          4),
+    aic_constrained    = round(AIC(m_sar_constrained),   2),
+    aic_unconstrained  = round(AIC(m_sar_unconstrained), 2),
+    preferred          = ifelse(
+      p_val_b0 < 0.05,
+      "Unconstrained (regime breaks significant)",
+      "Constrained (no evidence of regime breaks)"
+    )
+  )
+
+  message("Block 0 SAR LR test results:")
+  print(regime_lr_test)
+  readr::write_csv(regime_lr_test,
+                   file.path(path_data, "regime_sar_lr_test.csv"))
+} else {
+  message("Block 0 SAR LR test skipped — one or both models failed to estimate.")
+}
 
 # =============================================================================
 # Block 1: Map observation 97 to exact date
@@ -581,6 +702,7 @@ if (!is.null(vif_orth)) {
 # Save all results
 # =============================================================================
 structural_break_results <- list(
+  regime_lr_test    = regime_lr_test,   # Block 0 — primary spatial evidence
   row_97            = row_97,
   auto_break_year   = auto_break_year,
   bp_comparison     = bp_comparison,

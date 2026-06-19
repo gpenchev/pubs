@@ -52,3 +52,15 @@ scripts/output/tables/
 
 # UCDP raw data — must be downloaded manually (see 06_download_ucdp.R)
 scripts/output/data/ucdp_ged_raw.csv
+
+
+# Personal / private — not uploaded to GitHub
+BEFORE_YOU_RUN.md
+methodology/models/
+models/
+presentation/
+abstract.txt
+pubs.Rproj
+quarto/
+scripts_other/
+analysis/

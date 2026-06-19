@@ -1,0 +1,6 @@
+test,ll_constrained,ll_unconstrained,lr_stat,df,p_value,aic_constrained,aic_unconstrained,preferred,source,model,n_params,log_lik,aic,bic
+SAR LR: constrained vs four-regime,40.197,44.672,8.952,3,0.0299,33.61,30.66,Unconstrained (regime breaks significant),SAR LR test,NA,NA,NA,NA,NA
+NA,NA,NA,NA,NA,NA,NA,NA,NA,AIC comparison,A: No regime,9,-321.199,662.397,705.107
+NA,NA,NA,NA,NA,NA,NA,NA,NA,AIC comparison,B: Auto break,11,-320.571,665.142,716.394
+NA,NA,NA,NA,NA,NA,NA,NA,NA,AIC comparison,C: 2014/2022,13,-315.428,658.855,718.649
+NA,NA,NA,NA,NA,NA,NA,NA,NA,AIC comparison,D: Four-regime,15,-312.207,656.414,724.75

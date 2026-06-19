@@ -1,0 +1,14 @@
+country,n,pearson_r,p_value,spearman_r,interpretation
+BE,29,0.371,0.0474,0.205,Weak
+DE,29,0.428,0.0207,0.035,Weak
+DK,29,0.528,0.0033,0.067,Moderate
+ES,29,0.041,0.8316,0.135,Negligible
+FI,29,0.729,0,0.124,Strong
+FR,29,0.201,0.2969,0.098,Negligible
+GB,29,0.105,0.588,-0.046,Negligible
+HU,29,0.676,1e-4,0.513,Moderate
+IT,29,0.375,0.0451,0.131,Weak
+NL,29,0.49,0.0069,0.19,Weak
+NO,29,0.667,1e-4,0.425,Moderate
+PL,29,0.587,8e-4,0.036,Moderate
+PT,29,0.097,0.6183,0.053,Negligible

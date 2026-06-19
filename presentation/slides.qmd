@@ -1,0 +1,486 @@
+---
+title: "Threat Proximity and Defence Spending in NATO-EU Member States, 1995–2023"
+author: "[Author Name]"
+institute: "[Institution]"
+date: today
+format:
+  pptx:
+    reference-doc: reference.pptx
+    slide-level: 2
+    toc: false
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r setup, include=FALSE}
+source(here::here("presentation", "theme_figures.R"))
+D <- load_data()
+```
+
+## The Problem: Why a New Threat Measure?
+
+**NATO burden-sharing needs geography**
+
+- NATO 2% GDP target treats **all members equally** — regardless of proximity to conflict
+- Poland and Portugal are not equally threatened
+- Existing proxies measure the wrong thing:
+  - **CINC scores** → military capability, not threat *faced*
+  - **GPR index** → newspaper anxiety, not land-reachable conflict
+  - **GDP ratios** → circular (outcome used as predictor)
+- **Gap:** no continuous, georeferenced, country-specific measure of proximate territorial threat
+
+::: notes
+The 2% debate assumes equal threat exposure. GPR captures Iraq 2003, terrorism, trade wars — not whether a war is reachable by land. CINC measures capability, not the threat you face. The contribution is the measure itself, then what it reveals about rational response.
+:::
+
+## A Novel Georeferenced Territorial Threat Measure
+
+:::: {.columns}
+::: {.column width="40%"}
+**Threat~it~ = ln(1 + Σⱼ Fat~jt~ × e^−d/500^ × Land~ij~)**
+
+① **Fatality-weighted** — intensity, not just count
+
+② **500 km decay** — proximity to border matters
+
+③ **Land-contiguous** — ≤50 km sea crossing only
+
+Source: **UCDP GED 26.1** · 118,000 events
+:::
+::: {.column width="60%"}
+```{r f1-map, fig.width=8, fig.height=5, fig.alt="Two-panel Europe map: bubble mass over Balkans 1995-2004 left, over Eastern Europe 2014-2023 right"}
+xlim_eu <- c(-13, 43); ylim_eu <- c(33, 72)
+events_land <- D$events |>
+  filter(land_contiguous == TRUE, !is.na(lon), !is.na(lat), best > 0)
+label_cty <- tibble(
+  label = c("PL","RO","LT","LV","EE","HR","BA","RS","UA"),
+  x     = c(19.4, 24.9, 23.9, 24.6, 25.0, 16.4, 17.8, 21.0, 31.0),
+  y     = c(51.9, 45.9, 55.9, 56.9, 58.7, 45.1, 44.2, 44.0, 48.4)
+)
+map_panel <- function(yrs, bcol, ttl) {
+  ev <- events_land |>
+    filter(year %in% yrs) |>
+    group_by(lon, lat) |>
+    summarise(fat = sum(best, na.rm=TRUE), .groups="drop")
+  ggplot() +
+    theme_pres(9) +
+    theme(panel.background=element_rect(fill="#D6E4F0",colour=NA),
+          panel.grid=element_blank(), axis.text=element_blank(),
+          axis.ticks=element_blank(), axis.title=element_blank(),
+          axis.line=element_blank(), plot.margin=margin(2,2,2,2),
+          plot.title=element_text(size=rel(1.0),hjust=0.5,colour=COL$text,face="bold")) +
+    geom_sf(data=D$europe, fill="#EEF2F7", colour="#AABCCE", linewidth=0.2) +
+    geom_point(data=ev, aes(x=lon,y=lat,size=log1p(fat)),
+               colour=bcol, alpha=0.68, shape=16) +
+    scale_size_continuous(range=c(1,12), guide="none") +
+    geom_text(data=label_cty, aes(x=x,y=y,label=label),
+              colour=COL$text, size=2.71, fontface="bold", family=.pres_font) +
+    coord_sf(xlim=xlim_eu, ylim=ylim_eu, expand=FALSE) +
+    labs(title=ttl)
+}
+p_b <- map_panel(1995:2004, COL$red,    "1995–2004  Balkans Wars")
+p_e <- map_panel(2014:2023, COL$orange, "2014–2023  Ukraine Era")
+p_b + p_e
+```
+
+*Eastern EU (PL, RO, LT, LV, EE) face orders-of-magnitude more threat than Western EU — this cross-national variation identifies the model*
+:::
+::::
+
+::: notes
+Show the map. 1995–1999: threat mass over Balkans — Croatia, Bosnia, Kosovo. By 2022 it shifts entirely east. Poland, Romania, Lithuania face it at full weight; Spain and Portugal face near-zero. This within-year cross-sectional variation is what allows identification.
+:::
+
+## Data and Sample — 22 NATO-EU States · 1998–2023 · N = 529
+
+| Variable | Source | Notes |
+|---|---|---|
+| Defence spending (% GDP) | WDI / SIPRI | Dependent variable |
+| **Threat proximity index** | **UCDP GED 26.1** | **Novel measure** |
+| Fiscal deficit (% GDP) | Eurostat / IMF WEO | |
+| Government debt (% GDP) | Eurostat | |
+| Immigration rate | Eurostat | |
+| Gov. EU position (0–10) | ParlGov — seat-weighted | |
+| Gov. left-right (0–10) | ParlGov — seat-weighted | |
+| ~~GB~~ | excluded | Threat 39% below mean; spending 47% above — island misfit |
+| ~~LU~~ | excluded | Structural outlier |
+
+::: notes
+One sentence per row — fast. GB exclusion: island geography means the land-contiguity measure systematically underestimates threat. The 39/47 divergence confirms structural misfit. ParlGov seat-weighted means it reflects coalition balance, not just the lead party.
+:::
+
+## Three Identification Layers
+
+**① Two-way fixed effects (M3)**
+— *Does threat predict spending at all?*
+Country FE strips time-invariant differences · Year FE strips all common shocks
+Identification from **within-country, within-year variation only**
+
+**② Spatial autoregressive panel (M5)**
+— *Is cross-country correlation genuine strategic interaction — or shared inertia?*
+Block-diagonal queen contiguity W matrix · ρ > 0 = strategic complementarity
+
+**★ ③ Regime interactions (M4, M7) — the core finding**
+— *Has the rationality of response changed across political epochs?*
+Bai-Perron breaks → **four regimes confirmed** (LR p = 0.030)
+**1995–2004 · 2005–2013 · 2014–2021 · 2022–2023**
+
+::: notes
+Not 13 models for robustness — 13 models because each asks a different question. Layer 1: basic rationality test. Layer 2: is the spatial pattern real coordination? Layer 3: the finding that rationality breaks in 2005–2013 is not a robustness check — it IS the core result.
+:::
+
+## Threat Significant in 11 of 12 Specifications
+
+```{r f3-forest, fig.width=14, fig.height=7.5, fig.alt="Forest plot: threat_land_log coefficient across M1-M12, all positive except M10b, M5 highlighted"}
+coef_d <- D$coef |>
+  filter(term == "threat_land_log", !is.na(std_error)) |>
+  mutate(
+    ci_lo   = estimate - 1.96 * std_error,
+    ci_hi   = estimate + 1.96 * std_error,
+    sig     = p_value < 0.05,
+    pt_col  = if_else(sig, COL$green, COL$grey),
+    lbl = dplyr::recode(model,
+      "M1: Pooled OLS"       = "M1   Pooled OLS",
+      "M2: Country FE"       = "M2   Country FE",
+      "M3: Two-way FE"       = "M3   Two-way FE  ★",
+      "M4: FE + Regime"      = "M4   FE + Regime",
+      "M5: SAR"              = "M5   SAR  ★ primary",
+      "M6: SEM"              = "M6   SEM",
+      "M7: SAR + Regime"     = "M7   SAR + Regime",
+      "M10a: SAR no Finland" = "M10a SAR no Finland",
+      "M10b: SAR post-2014"  = "M10b SAR post-2014 †",
+      "M10c: SAR pre-2014"   = "M10c SAR pre-2014",
+      "M12: SAR lagged DV"   = "M12  SAR lagged DV"
+    )
+  ) |>
+  mutate(sort_k = if_else(model=="M5: SAR", 99, estimate)) |>
+  arrange(sort_k) |>
+  mutate(lbl = factor(lbl, levels=lbl))
+
+m5_y <- as.numeric(coef_d$lbl[coef_d$model == "M5: SAR"])
+m10b_row <- coef_d |> filter(model == "M10b: SAR post-2014")
+
+ggplot(coef_d, aes(x=estimate, y=lbl, colour=pt_col)) +
+  annotate("rect", xmin=-Inf, xmax=Inf,
+           ymin=m5_y-0.45, ymax=m5_y+0.45,
+           fill=COL$blue, alpha=0.10) +
+  geom_vline(xintercept=0, colour=COL$zero, linetype="dashed", linewidth=0.8) +
+  geom_errorbar(aes(xmin=ci_lo, xmax=ci_hi),
+                orientation="y", width=0.28, linewidth=0.9) +
+  geom_point(size=4) +
+  scale_colour_identity() +
+  geom_text(aes(x=ci_hi+0.003,
+                label=sprintf("β=%.3f%s", estimate, if_else(sig,"***",""))),
+            hjust=0, size=3.0, colour=COL$text2, family=.pres_font) +
+  annotate("text",
+           x=m10b_row$ci_lo[1]-0.003,
+           y=as.numeric(m10b_row$lbl[1]),
+           label="year FE\nabsorbs shock",
+           hjust=0, vjust=-1, size=2.8, colour=COL$orange,
+           fontface="italic", family=.pres_font) +
+  scale_x_continuous(limits=c(-0.07,0.22), breaks=seq(-0.05,0.20,0.05)) +
+  labs(title="Threat Coefficient Across All Specifications",
+       subtitle="Green = significant (p<0.05)  ·  Grey = not significant  ·  ★ = primary models",
+       x="Coefficient estimate (95% CI)", y=NULL,
+       caption="Dependent variable: defence spending (% GDP)") +
+  theme_pres(10) +
+  theme(panel.grid.major.y=element_blank(),
+        axis.text.y=element_text(size=rel(0.88), colour=COL$text))
+```
+
+::: notes
+Every green point is right of zero. Range 0.050–0.106 reflects identification strategy, not fragility. M12 (lagged DV) is the most conservative: threat still significant after controlling for spending inertia. M10b is grey because year FE absorbed the 2022 common shock — cross-section 2022 gives β=+0.381, R²=0.56. Fiscal deficit (−0.023***) and spatial lag ρ=+0.177*** also significant in M5.
+:::
+
+## Fiscal Austerity Broke Rational Response for a Decade
+
+:::: {.columns}
+::: {.column width="58%"}
+```{r f4-regime, fig.width=9.4, fig.height=9.9, fig.alt="Dot-CI plot: net threat elasticity by regime — R1 green positive, R2 red negative, R3 orange negative, R4 blue positive"}
+int_ses <- D$coef |>
+  filter(model=="M7: SAR + Regime",
+         term %in% c("threat_land_log","threat_land_log:regime2",
+                     "threat_land_log:regime3","threat_land_log:regime4")) |>
+  select(term, se=std_error) |>
+  tidyr::pivot_wider(names_from=term, values_from=se)
+b_se  <- as.numeric(int_ses[["threat_land_log"]])
+se_v  <- c(b_se,
+           sqrt(b_se^2 + as.numeric(int_ses[["threat_land_log:regime2"]])^2),
+           sqrt(b_se^2 + as.numeric(int_ses[["threat_land_log:regime3"]])^2),
+           sqrt(b_se^2 + as.numeric(int_ses[["threat_land_log:regime4"]])^2))
+rdf <- D$regime |>
+  mutate(se_c  = se_v,
+         ci_lo = net_coef - 1.96*se_c,
+         ci_hi = net_coef + 1.96*se_c,
+         rc    = REG_COL[as.character(regime)],
+         xl    = c("R1\n1995–2004\nBalkans","R2\n2005–2013\nAusterity",
+                   "R3\n2014–2021\nPost-Crimea","R4\n2022–2023\nUkraine"),
+         xl    = factor(xl, levels=xl))
+ggplot(rdf, aes(x=xl, y=net_coef, colour=rc, fill=rc)) +
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=0,    ymax= Inf,
+           fill=COL$green, alpha=0.06) +
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0,
+           fill=COL$red,   alpha=0.06) +
+  geom_hline(yintercept=0, colour=COL$zero, linetype="dashed", linewidth=1.0) +
+  geom_line(aes(group=1), colour=COL$grey, linewidth=0.9) +
+  geom_errorbar(aes(ymin=ci_lo, ymax=ci_hi), width=0.14, linewidth=1.1) +
+  geom_point(size=8, shape=21, stroke=1.6) +
+  geom_text(aes(label=sprintf("%+.3f", net_coef),
+                vjust=if_else(net_coef>=0, -1.6, 2.6)),
+            size=2.5, fontface="bold", family=.pres_font, colour=COL$text) +
+  scale_colour_identity() + scale_fill_identity() +
+  scale_y_continuous(breaks=seq(-0.30,0.25,0.10),
+                     labels=function(x) sprintf("%+.2f",x)) +
+  labs(title="Net Threat-Defence Elasticity by Regime (M7)",
+       subtitle="LR test: four-regime preferred (p = 0.030)  ·  95% CI bars",
+       x=NULL, y="Net elasticity") +
+  theme_pres(12) +
+  theme(panel.grid.major.x=element_blank(),
+        axis.text.x=element_text(size=rel(0.85), lineheight=1.3, colour=COL$text))
+```
+:::
+::: {.column width="42%"}
+| Regime | Period | Net β |
+|---|---|---|
+| **R1** | 1995–2004 | **+0.100** ✓ |
+| **R2** | 2005–2013 | **−0.156** ✗ |
+| **R3** | 2014–2021 | **−0.067** ✗ |
+| **R4** | 2022–2023 | **+0.151** ↑ |
+
+**R2 — austerity dominated:**
+Fiscal crisis forced cuts even where threat was real
+
+**R4 — direction correct:**
+N=44, 28% power
+Cross-section 2022: β=+0.381, R²=0.56
+:::
+::::
+
+::: notes
+THIS IS THE CENTRAL FINDING. R2 net is NEGATIVE — rising threat led to reduced spending because fiscal consolidation overrode everything. R3: Crimea began recovery but governments still running post-crisis budgets. R4 direction is right but underpowered; the cross-section 2022 confirms the within-year gradient is real. Policy: demanding 2% during a fiscal crisis is structurally impossible — Latvia and Estonia in 2010 lacked fiscal room, not motivation.
+:::
+
+## Spatial Structure: Alliance Coordination, Not Contagion
+
+| Specification | ρ | p | Reading |
+|---|---|---|---|
+| M5 — levels SAR | **+0.177** | \<0.001 | Complementarity in spending levels |
+| M12 — lagged DV SAR | +0.061 | 0.077 | Near-zero after persistence removed |
+| FD-SAR — changes | **−0.091** | 0.032 | *Substitution* in annual changes |
+| Pre-2014 (M10c) | +0.019 | 0.696 | No spatial effect before Crimea |
+| Post-2014 (M10b) | +0.082 | 0.194 | Weak post-Crimea |
+
+::: notes
+Countries match spending levels through NATO norms — they do NOT copy annual changes. Short-run changes show slight substitution (burden-sharing division).
+Countries have matched spending levels because of the 2% target creating a levels anchor. They do NOT copy annual changes — FD-SAR shows slight substitution (if Germany surges, France relaxes slightly). Pre-2014: no spatial interaction at all. The full-sample positive ρ is driven by post-2022 coordinated rearmament acting as a common shock.
+:::
+
+## UCDP Outperforms GPR Perception Index (ΔAIC = 17.6)
+
+```{r f5-gpr, fig.width=16.5, fig.height=9.2, fig.alt="Line chart: UCDP threat index blue vs GPR red, 2010-2023, GPR spikes at 2014 Crimea while UCDP stays flat, both spike at 2022 Ukraine invasion"}
+gts <- D$crimea |>
+  filter(year >= 2010) |>
+  group_by(country) |>
+  mutate(
+    tn = (threat_land_log - min(threat_land_log, na.rm=TRUE)) /
+         (max(threat_land_log, na.rm=TRUE) - min(threat_land_log, na.rm=TRUE) + 1e-9),
+    gn = (gpr_mean - min(gpr_mean, na.rm=TRUE)) /
+         (max(gpr_mean, na.rm=TRUE) - min(gpr_mean, na.rm=TRUE) + 1e-9)
+  ) |>
+  ungroup() |>
+  group_by(year) |>
+  summarise(ucdp=mean(tn,na.rm=TRUE), gpr=mean(gn,na.rm=TRUE), .groups="drop") |>
+  pivot_longer(c(ucdp,gpr), names_to="s", values_to="v") |>
+  mutate(sl = if_else(s=="ucdp","UCDP threat index","GPR perception index"))
+
+ggplot(gts, aes(x=year, y=v, colour=sl, group=sl)) +
+  annotate("rect", xmin=2013.7,xmax=2014.3, ymin=-Inf,ymax=Inf,
+           fill=COL$orange, alpha=0.12) +
+  geom_vline(xintercept=2014, colour=COL$orange, linetype="dashed", linewidth=0.9) +
+  geom_vline(xintercept=2022, colour=COL$text,   linetype="solid",  linewidth=0.8) +
+  geom_line(linewidth=1.8) +
+  geom_point(size=3.5, shape=21, aes(fill=sl), colour=COL$bg, stroke=1.1) +
+  annotate("text", x=2014.2, y=0.92,
+           label="Crimea: GPR spikes\n\nUCDP stays flat",
+           colour=COL$orange, size=3.0, hjust=0, fontface="italic",
+           family=.pres_font, lineheight=1.2) +
+  annotate("text", x=2022.2, y=0.55,
+           label="Ukraine:\n\nboth spike",
+           colour=COL$text2, size=3.0, hjust=1.5, vjust=-1, fontface="italic",
+           family=.pres_font, lineheight=1.2) +
+  scale_colour_manual(values=c("UCDP threat index"=COL$blue,
+                                "GPR perception index"=COL$red), name=NULL) +
+  scale_fill_manual(values=c("UCDP threat index"=COL$blue,
+                              "GPR perception index"=COL$red), guide="none") +
+  scale_x_continuous(breaks=2010:2023) +
+  scale_y_continuous(labels=scales::percent_format(accuracy=1), limits=c(0,1.08)) +
+  labs(title="UCDP vs GPR: 13-country mean, normalised 0–1, ΔAIC = −17.6 in favour of UCDP",
+       subtitle="UCDP misses Crimea (non-kinetic) · both capture Ukraine · GPR spatial lag reverses sign (ρ = −0.21)",
+       x=NULL, y="Normalised index",
+       caption="GPR: Caldara & Iacoviello (2022) · UCDP GED 26.1") +
+  theme_pres() +
+  theme(legend.position=c(0.15,0.88),
+        axis.text.x=element_text(angle=45, hjust=1))
+```
+
+::: notes
+The kinetic bias is visible: GPR spikes in 2014 because newspapers were full of Crimea stories. UCDP barely moves — few fatalities near EU land borders. Despite this limitation, UCDP fits spending data better by ΔAIC=17.6 on the same 13 countries. The spatial sign reversal is theoretically important: physical threat → complementarity (pos ρ); perceived risk → free-riding substitution (neg ρ). The 10 missing Eastern European countries are the highest-threat states — the UCDP advantage is conservative.
+:::
+
+## Primary Results Stable Across 10 Sensitivity Checks
+
+| Check | Tests | Verdict |
+|---|---|---|
+| **C** — Orthogonalisation | Threat/debt VIF = 13 | ✓ **STABLE** — 0% coefficient change |
+| **F** — No immigration | Political variable sensitivity | Threat stable · ideology reverses → immigration belongs |
+| **H** — Bulgaria 2019 | F-16 spike (Cook's D = 0.099) | ✓ **STABLE** — all \< 1 SE |
+| **I** — Cross-section 2022 | Year FE absorption | ✓ **CONFIRMED** — β = +0.381, R² = 0.56 |
+| **J** — Immigration × post-2022 | Ukrainian refugee confound | No distinct mechanism (p = 0.058) |
+
+::: notes
+VIF=13 is benign — orthogonalising debt from threat changes the threat coefficient by EXACTLY 0%. Check F: removing immigration flips sign of EU-position and left-right — political ideology effects are conditioned on immigration context; this confirms immigration belongs. Check I: strongest rebuttal to M10b — year FE absorbs a simultaneous shock; look within 2022 alone and the gradient is unambiguous.
+:::
+
+## Pro-EU Governments Reversed Direction After 2014
+
+| Period | Gov. EU position β | p | Reading |
+|---|---|---|---|
+| Pre-2014 | +0.024 | 0.053 | Marginally *more* defence spending |
+| Post-2014 | **−0.052** | \<0.001 | Significantly *less* defence spending |
+| Difference (z-test) | — | **0.008** | **Significant reversal** |
+| Left-right (any period) | — | n.s. | Not significant in any within-country model |
+
+::: notes
+Post-2014: PiS Poland · Fidesz Hungary · Baltic nationalist coalitions became the rearmament drivers. The cleavage shifted from left vs right to national sovereignty vs European integration.
+Before 2014, pro-EU governments spent slightly MORE — EU membership meant security cooperation commitments. After 2014, Eurosceptic nationalist parties became the strongest rearmament advocates. Pro-EU governments restrained by EU fiscal rules. Left-right has no effect once country levels are absorbed — only the EU dimension predicts within-country spending changes.
+:::
+
+## European Governments Are Conditionally Rational — Condition: Fiscal Space
+
+| Finding | Result | Implication |
+|---|---|---|
+| Threat drives spending | β = +0.088*** · stable across all specs | Rational when unconstrained |
+| Fiscal deficit suppresses | −0.023*** · every specification | Fiscal space is prerequisite |
+| Rationality gap 2005–2013 | Net β = −0.156 | Austerity → systematic underresponse |
+| Regime 4 returning | +0.151 · 2022 cross-section R²=0.56 | Recovery confirmed, two years only |
+| EU position reversal | Sign flip p = 0.008 | Eurosceptics became rearmament drivers |
+
+::: notes
+The overarching story: governments respond to threat when they can afford to. For NATO burden-sharing: the 2% target during austerity was empirically impossible — even threat-exposed governments couldn't comply. For post-2022: the rearmament surge is real and threat-proportional. For political science: the relevant cleavage for defence policy is now European integration vs national sovereignty, not left vs right.
+:::
+
+## Three Disclosed Limitations
+
+**Kinetic bias** — UCDP counts fatalities; misses Crimea 2014, hybrid warfare, cyberattacks. GPR comparison shows UCDP still wins on fit; the 2014 gap is documented.
+
+**50 km sea threshold** — Excludes Mediterranean naval threats. Greece is the clearest case: highest spender in sample, near-average UCDP threat — Aegean threats excluded by design. Country FE partially absorbs.
+
+**Regime 4 underpowered** — N=44, 28% statistical power. Direction correct (+0.151); 2022 cross-section strong (β=+0.381). The break finding rests on the SAR LR test, not R4 alone.
+
+::: notes
+Brief and direct. Kinetic bias is the deepest structural issue. Greece is the most visible country-level problem. Regime 4: "We have two years. Direction is right and the cross-sectional evidence is strong. We are honest about what the panel can and cannot confirm."
+:::
+
+## Open Science Supplement
+
+**All data, code, and models are publicly available**
+
+Full replication pipeline: [GitHub / OSF — link]
+
+**Interactive application:** [URL or QR code]
+
+- **Threat Index** — maps, time series, country comparisons
+- **Panel Estimation** — coefficient forest plot, regime effects
+- **Robustness Checks** — all 10 checks with full tables
+- **Specific Issues** — kinetic bias · Greece · immigration · GPR coverage
+
+*Thank you — questions welcome*
+
+::: notes
+Invite the audience to open the app during Q&A — every chart is interactive. The Specific Issues tab is designed for exactly this moment. Frame reproducibility as part of the design: the entire analysis runs from raw UCDP and Eurostat downloads to publication tables in a single pipeline.
+:::
+
+<!-- Backup Slides -->
+
+## [BACKUP] Full M5 Primary Model Coefficients
+
+| Variable | Coefficient | SE | p |
+|---|---|---|---|
+| threat_land_log | **+0.088** | 0.023 | \<0.001 *** |
+| debt_gdp | +0.000 | 0.001 | 0.868 |
+| deficit_gdp | **−0.023** | 0.005 | \<0.001 *** |
+| gdp_growth | +0.003 | 0.005 | 0.494 |
+| immigration_rate | **+0.012** | 0.003 | \<0.001 *** |
+| gov_left_right | +0.007 | 0.007 | 0.301 |
+| gov_eu_position | **−0.020** | 0.009 | 0.021 * |
+| election_year | −0.034 | 0.023 | 0.129 |
+| **ρ (spatial lag)** | **+0.177** | 0.039 | \<0.001 *** |
+
+::: notes
+N=517 · Log-likelihood=40.20 · AIC=33.61 · Block-diagonal queen contiguity W · 22 countries · 1998–2023. Use this if asked for the complete regression table.
+:::
+
+## [BACKUP] Check I — Within-Year Cross-Section 2022
+
+```{r f6-checki, fig.width=15.5, fig.height=8.8, fig.alt="Scatter: threat vs defence spending 2022, 22 countries labelled, regression line, R-squared 0.56"}
+p22 <- D$panel |>
+  filter(year==2022, !is.na(threat_land_log), !is.na(defence_gdp))
+ggplot(p22, aes(x=threat_land_log, y=defence_gdp)) +
+  geom_smooth(method="lm", colour=COL$green, fill=COL$green,
+              alpha=0.12, linewidth=1.1, se=TRUE) +
+  geom_point(size=4.5, colour=COL$blue, alpha=0.85) +
+  geom_text_repel(aes(label=country), size=3.2, colour=COL$text,
+                  fontface="bold", family=.pres_font,
+                  box.padding=0.4, segment.color=COL$text3, segment.size=0.4) +
+  annotate("label",
+           x=min(p22$threat_land_log,na.rm=TRUE)+1.1,
+           y=max(p22$defence_gdp,na.rm=TRUE)-0.15,
+           label="β = +0.381 (p = 0.001)\n\nR² = 0.56  ·  N = 22",
+           fill=COL$surface, colour=COL$green,
+           size=3.5, fontface="bold", family=.pres_font,
+           label.padding=unit(0.45,"lines")) +
+  labs(title="Within-Year Cross-Section: 2022  (Check I)",
+       subtitle="Countries closer to Ukraine spent more — year FE artefact in M10b confirmed",
+       x="Threat proximity index (log)", y="Defence spending (% GDP)",
+       caption="OLS · no FE · controls: debt_gdp, deficit_gdp, gdp_growth") +
+  theme_pres()
+```
+
+::: notes
+Use this if challenged on the M10b post-2014 non-significance. Year FE absorbs a simultaneous shock that hit all 22 countries. Remove the year FE and look within 2022 alone — the threat gradient is unambiguous: R²=0.56.
+:::
+
+## [BACKUP] Bulgaria 2019 — Procurement Artefact, Not Policy Shift
+
+```{r f7-bulgaria, fig.width=15.5, fig.height=8.0, fig.alt="Bulgaria defence spending 1995-2023 with threat index on secondary axis, 2019 spike annotated as F-16 procurement"}
+bg <- D$panel |> filter(country=="BG")
+ggplot(bg, aes(x=year)) +
+  annotate("rect", xmin=2018.5,xmax=2019.5, ymin=-Inf,ymax=Inf,
+           fill=COL$red, alpha=0.15) +
+  geom_line(aes(y=defence_gdp), colour=COL$blue, linewidth=1.4) +
+  geom_point(aes(y=defence_gdp), colour=COL$blue, size=3, shape=21, fill=COL$blue) +
+  geom_line(aes(y=threat_land_log*0.4), colour=COL$orange,
+            linewidth=0.9, linetype="dashed") +
+  annotate("text", x=2016, y=2.95,
+           label="F-16 procurement\n\ncontract (one-off)", colour=COL$red,
+           size=3.0, hjust=0.5, vjust=0, fontface="italic", family=.pres_font) +
+  annotate("text", x=2017, y=0.8,
+           label="Threat index (×0.4)", colour=COL$orange,
+           size=3.0, hjust=0, fontface="italic", family=.pres_font) +
+  scale_x_continuous(breaks=seq(1995,2023,4)) +
+  scale_y_continuous(name="Defence spending (% GDP)",
+                     sec.axis=sec_axis(~./0.4, name="Threat index (log)")) +
+  labs(title="Bulgaria: Defence Spending and Threat Index, 1995–2023",
+       subtitle="2019 spike = single-year F-16 procurement recording  ·  Check H: all coefficients STABLE (< 1 SE)",
+       x=NULL, caption="Sources: WDI/SIPRI · UCDP GED 26.1") +
+  theme_pres() +
+  theme(axis.title.y.right=element_text(colour=COL$orange),
+        axis.text.y.right =element_text(colour=COL$orange))
+```
+
+::: notes
+Use this if challenged on the Bulgaria 2019 observation. It is a real procurement accounting artefact — confirmed stable by Check H: removing BG 2019 changes all key coefficients by less than 1 SE. It does not drive the threat coefficient, the regime interaction, or the spatial lag.
+:::

@@ -1,0 +1,132 @@
+model,term,estimate,std_error,p_value,significant
+M1: Pooled OLS,debt_gdp,0.003198,0.003614,0.3762,FALSE
+M1: Pooled OLS,deficit_gdp,-0.008123,0.011724,0.4884,FALSE
+M1: Pooled OLS,election_year,-0.022473,0.020482,0.2725,FALSE
+M1: Pooled OLS,gdp_growth,0.009185,0.009356,0.3263,FALSE
+M1: Pooled OLS,gov_eu_position,-0.007999,0.029018,0.7828,FALSE
+M1: Pooled OLS,gov_left_right,0.031009,0.014767,0.0357,TRUE
+M1: Pooled OLS,immigration_rate,-0.004331,0.009981,0.6644,FALSE
+M1: Pooled OLS,threat_land_log,0.078615,0.018895,0,TRUE
+M2: Country FE,debt_gdp,-0.003106,9.6e-4,0.0012,TRUE
+M2: Country FE,deficit_gdp,-0.026833,0.005571,0,TRUE
+M2: Country FE,election_year,-0.035665,0.022282,0.1095,FALSE
+M2: Country FE,gdp_growth,0.005916,0.004488,0.1874,FALSE
+M2: Country FE,gov_eu_position,-0.023172,0.013539,0.087,FALSE
+M2: Country FE,gov_left_right,0.001593,0.011437,0.8892,FALSE
+M2: Country FE,immigration_rate,0.01506,0.008063,0.0618,FALSE
+M2: Country FE,threat_land_log,0.050132,0.009185,0,TRUE
+M3: Two-way FE,debt_gdp,-2e-4,0.001,0.8428,FALSE
+M3: Two-way FE,deficit_gdp,-0.0253,0.0049,0,TRUE
+M3: Two-way FE,election_year,-0.0259,0.0243,0.2872,FALSE
+M3: Two-way FE,gdp_growth,0.0036,0.0053,0.4942,FALSE
+M3: Two-way FE,gov_eu_position,-0.0193,0.0094,0.0412,TRUE
+M3: Two-way FE,gov_left_right,0.0043,0.0073,0.5552,FALSE
+M3: Two-way FE,immigration_rate,0.0159,0.0037,0,TRUE
+M3: Two-way FE,threat_land_log,0.1057,0.0238,0,TRUE
+M4: FE + Regime,debt_gdp,-4e-4,9e-4,0.7046,FALSE
+M4: FE + Regime,debt_gdp,-3.58e-4,NA,NA,NA
+M4: FE + Regime,deficit_gdp,-0.0228,0.0049,0,TRUE
+M4: FE + Regime,deficit_gdp,-0.022779,NA,NA,NA
+M4: FE + Regime,election_year,-0.0293,0.0241,0.2238,FALSE
+M4: FE + Regime,election_year,-0.029298,NA,NA,NA
+M4: FE + Regime,gdp_growth,0.0012,0.0054,0.8162,FALSE
+M4: FE + Regime,gdp_growth,0.001248,NA,NA,NA
+M4: FE + Regime,gov_eu_position,-0.0186,0.0094,0.0475,TRUE
+M4: FE + Regime,gov_eu_position,-0.01865,NA,NA,NA
+M4: FE + Regime,gov_left_right,0.0035,0.0073,0.6284,FALSE
+M4: FE + Regime,gov_left_right,0.003544,NA,NA,NA
+M4: FE + Regime,immigration_rate,0.016,0.0036,0,TRUE
+M4: FE + Regime,immigration_rate,0.016049,NA,NA,NA
+M4: FE + Regime,threat_land_log,0.0998,0.034,0.0035,TRUE
+M4: FE + Regime,threat_land_log,0.099754,NA,NA,NA
+M4: FE + Regime,threat_land_log:regime2,-0.256,0.1122,0.023,TRUE
+M4: FE + Regime,threat_land_log:regime2,-0.255988,NA,NA,NA
+M4: FE + Regime,threat_land_log:regime3,-0.1672,0.0777,0.0319,TRUE
+M4: FE + Regime,threat_land_log:regime3,-0.167249,NA,NA,NA
+M4: FE + Regime,threat_land_log:regime4,0.0508,0.0451,0.261,FALSE
+M4: FE + Regime,threat_land_log:regime4,0.050811,NA,NA,NA
+M5: SAR,debt_gdp,2e-4,0.001,0.8677,FALSE
+M5: SAR,deficit_gdp,-0.023,0.0046,0,TRUE
+M5: SAR,election_year,-0.0342,0.0225,0.1286,FALSE
+M5: SAR,gdp_growth,0.0034,0.0049,0.4941,FALSE
+M5: SAR,gov_eu_position,-0.0199,0.0086,0.0209,TRUE
+M5: SAR,gov_left_right,0.007,0.0067,0.3008,FALSE
+M5: SAR,immigration_rate,0.012,0.0034,3e-4,TRUE
+M5: SAR,rho,0.177077,0.038535,0,TRUE
+M5: SAR,threat_land_log,0.0884,0.0227,1e-4,TRUE
+M6: SEM,debt_gdp,7e-4,0.001,0.5125,FALSE
+M6: SEM,deficit_gdp,-0.0235,0.0047,0,TRUE
+M6: SEM,election_year,-0.035,0.0219,0.1095,FALSE
+M6: SEM,gdp_growth,0.0042,0.0053,0.4206,FALSE
+M6: SEM,gov_eu_position,-0.0176,0.0085,0.0381,TRUE
+M6: SEM,gov_left_right,0.0073,0.0067,0.2755,FALSE
+M6: SEM,immigration_rate,0.0106,0.0034,0.0019,TRUE
+M6: SEM,lambda,0.180105,0.040607,0,TRUE
+M6: SEM,threat_land_log,0.1008,0.0259,1e-4,TRUE
+M7: SAR + Regime,debt_gdp,0,0.001,0.9699,FALSE
+M7: SAR + Regime,deficit_gdp,-0.0216,0.0046,0,TRUE
+M7: SAR + Regime,election_year,-0.0356,0.0224,0.1121,FALSE
+M7: SAR + Regime,gdp_growth,0.0019,0.005,0.6986,FALSE
+M7: SAR + Regime,gov_eu_position,-0.019,0.0086,0.0277,TRUE
+M7: SAR + Regime,gov_left_right,0.0058,0.0068,0.3884,FALSE
+M7: SAR + Regime,immigration_rate,0.0125,0.0034,2e-4,TRUE
+M7: SAR + Regime,rho,0.152568,0.038873,1e-4,TRUE
+M7: SAR + Regime,threat_land_log,0.0706,0.0341,0.0384,TRUE
+M7: SAR + Regime,threat_land_log:regime2,-0.1809,0.1207,0.134,FALSE
+M7: SAR + Regime,threat_land_log:regime3,-0.1074,0.0736,0.1443,FALSE
+M7: SAR + Regime,threat_land_log:regime4,0.0599,0.0436,0.1702,FALSE
+M8: SAR Robust threat,debt_gdp,0.0021,0.001,0.0438,TRUE
+M8: SAR Robust threat,deficit_gdp,-0.0258,0.0046,0,TRUE
+M8: SAR Robust threat,election_year,-0.0349,0.0222,0.1162,FALSE
+M8: SAR Robust threat,gdp_growth,0.0068,0.0049,0.1709,FALSE
+M8: SAR Robust threat,gov_eu_position,-0.0123,0.0086,0.1548,FALSE
+M8: SAR Robust threat,gov_left_right,0.0092,0.0066,0.1643,FALSE
+M8: SAR Robust threat,immigration_rate,0.0089,0.0034,0.0082,TRUE
+M8: SAR Robust threat,rho,0.164069,0.038599,0,TRUE
+M9: SAR inv.dist,rho,0.345888,0.069562,0,TRUE
+M10a: SAR no Finland,debt_gdp,4e-4,0.001,0.7182,FALSE
+M10a: SAR no Finland,deficit_gdp,-0.0158,0.0061,0.0099,TRUE
+M10a: SAR no Finland,election_year,-0.0337,0.0244,0.1667,FALSE
+M10a: SAR no Finland,gdp_growth,0.0034,0.0053,0.5179,FALSE
+M10a: SAR no Finland,gov_eu_position,-0.0158,0.0095,0.0945,FALSE
+M10a: SAR no Finland,gov_left_right,0.0038,0.0074,0.6091,FALSE
+M10a: SAR no Finland,immigration_rate,0.0107,0.0036,0.0026,TRUE
+M10a: SAR no Finland,rho,0.221055,0.042294,0,TRUE
+M10a: SAR no Finland,threat_land_log,0.0979,0.025,1e-4,TRUE
+M10b: SAR post-2014,debt_gdp,8e-4,0.0035,0.82,FALSE
+M10b: SAR post-2014,deficit_gdp,-0.0303,0.0083,3e-4,TRUE
+M10b: SAR post-2014,election_year,-0.054,0.0346,0.118,FALSE
+M10b: SAR post-2014,gdp_growth,-0.0061,0.0103,0.5565,FALSE
+M10b: SAR post-2014,gov_eu_position,-0.02,0.0161,0.2127,FALSE
+M10b: SAR post-2014,gov_left_right,0.0208,0.0128,0.1056,FALSE
+M10b: SAR post-2014,immigration_rate,-0.0092,0.005,0.0664,FALSE
+M10b: SAR post-2014,rho,0.082252,0.063431,0.1947,FALSE
+M10b: SAR post-2014,threat_land_log,0.0118,0.0322,0.7141,FALSE
+M10c: SAR pre-2014,debt_gdp,0.002,0.0012,0.108,FALSE
+M10c: SAR pre-2014,deficit_gdp,-0.0279,0.0049,0,TRUE
+M10c: SAR pre-2014,election_year,-0.0239,0.021,0.257,FALSE
+M10c: SAR pre-2014,gdp_growth,0.0141,0.0043,0.001,TRUE
+M10c: SAR pre-2014,gov_eu_position,0.0168,0.0087,0.0534,FALSE
+M10c: SAR pre-2014,gov_left_right,0.0084,0.0066,0.207,FALSE
+M10c: SAR pre-2014,immigration_rate,0.0067,0.005,0.1774,FALSE
+M10c: SAR pre-2014,rho,0.019205,0.049127,0.6958,FALSE
+M10c: SAR pre-2014,threat_land_log,0.0694,0.0247,0.005,TRUE
+M12: SAR lagged DV,debt_gdp,-3e-4,8e-4,0.6693,FALSE
+M12: SAR lagged DV,deficit_gdp,-0.013,0.0037,4e-4,TRUE
+M12: SAR lagged DV,election_year,-0.0148,0.0174,0.3969,FALSE
+M12: SAR lagged DV,gdp_growth,0.0015,0.0038,0.6953,FALSE
+M12: SAR lagged DV,gov_eu_position,-0.0081,0.0068,0.2337,FALSE
+M12: SAR lagged DV,gov_left_right,-0.0018,0.0052,0.7279,FALSE
+M12: SAR lagged DV,immigration_rate,0.0046,0.0026,0.0795,FALSE
+M12: SAR lagged DV,lag_defence_gdp,0.6531,0.035,0,TRUE
+M12: SAR lagged DV,rho,0.060925,0.034392,0.0765,FALSE
+M12: SAR lagged DV,threat_land_log,0.0497,0.0184,0.007,TRUE
+M13: GPR SAR,debt_gdp,9.4e-5,5.91e-4,0.8732,FALSE
+M13: GPR SAR,deficit_gdp,-0.013912,0.003024,0,TRUE
+M13: GPR SAR,election_year,0.006469,0.016204,0.6897,FALSE
+M13: GPR SAR,gdp_growth,-0.007755,0.005312,0.1443,FALSE
+M13: GPR SAR,gov_eu_position,-0.029558,0.006852,0,TRUE
+M13: GPR SAR,gov_left_right,0.02194,0.004892,0,TRUE
+M13: GPR SAR,gpr_log,0.284221,0.141047,0.0439,TRUE
+M13: GPR SAR,immigration_rate,0.001988,0.003057,0.5155,FALSE
+M13: GPR SAR,rho,-0.209889,0.045772,0,TRUE

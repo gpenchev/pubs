@@ -5,7 +5,7 @@ mod_scatter_ui <- function(id) {
       column(3,
         selectInput(ns("x_var"), "X variable",
                     choices  = get_variable_labels(),
-                    selected = "gdp_pc")
+                    selected = "threat_land_log")
       ),
       column(3,
         selectInput(ns("y_var"), "Y variable",
@@ -15,8 +15,7 @@ mod_scatter_ui <- function(id) {
       column(2,
         radioButtons(ns("colour_by"), "Colour by",
                      choices  = c("Regime"  = "regime",
-                                  "Country" = "country",
-                                  "Source"  = "defence_source"),
+                                  "Country" = "country"),
                      selected = "regime")
       ),
       column(2,
@@ -44,8 +43,18 @@ mod_scatter_server <- function(id, panel_data) {
     plot_data <- reactive({
       req(input$x_var, input$y_var, input$year)
 
-      cols <- unique(c("country", "country_name", "year", "regime",
-                       "defence_source", input$x_var, input$y_var))
+      # Only include columns that actually exist in panel_data
+      desired <- unique(c("country", "country_name", "year", "regime",
+                          "defence_source", input$x_var, input$y_var))
+      cols <- intersect(desired, names(panel_data))
+
+      # Validate both axis variables are present
+      validate(
+        need(input$x_var %in% names(panel_data),
+             paste0("Variable '", input$x_var, "' is not in the panel data.")),
+        need(input$y_var %in% names(panel_data),
+             paste0("Variable '", input$y_var, "' is not in the panel data."))
+      )
 
       panel_data %>%
         dplyr::filter(year == input$year) %>%
@@ -59,6 +68,8 @@ mod_scatter_server <- function(id, panel_data) {
       req(nrow(df) > 0)
 
       colour_col <- input$colour_by
+      # Fall back to "country" if chosen column is absent
+      if (!colour_col %in% names(df)) colour_col <- "country"
       if (colour_col == "regime") {
         df <- df %>% dplyr::mutate(regime = as.character(regime))
       }
@@ -118,8 +129,6 @@ mod_scatter_server <- function(id, panel_data) {
 
       if (colour_col == "regime") {
         gg <- gg + scale_colour_regime()
-      } else if (colour_col == "defence_source") {
-        gg <- gg + ggplot2::scale_colour_manual(values = palette_source)
       }
 
       plotly::ggplotly(gg, tooltip = "text") %>%

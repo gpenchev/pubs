@@ -1,6 +1,33 @@
 # =============================================================================
 # 02_process_parlgov.R
 # Process ParlGov raw tables into country-year political variables
+#
+# Variables produced:
+#   gov_left_right   — seat-weighted mean left-right position of cabinet parties
+#   gov_eu_position  — seat-weighted mean EU integration position of cabinet parties
+#   election_year    — binary flag: 1 if a parliamentary election occurred
+#   any_lr_imputed   — flag: 1 if any cabinet party had left-right imputed
+#   any_eu_imputed   — flag: 1 if any cabinet party had EU position imputed
+#
+# Seat-weighting: weights are the share of parliamentary seats held by each
+#   governing party within the cabinet. This reflects coalition balance rather
+#   than the lead party alone. For single-party majorities the weight = 1.
+#
+# Cabinet spells: ParlGov records cabinet start/end dates. Each cabinet spell
+#   is expanded to annual observations by carry-forward: the governing coalition
+#   active on 1 January of a given year determines that year's ideology scores.
+#
+# Imputation: missing party ideology scores are imputed using the mean of
+#   parties in the same ParlGov family group (e.g., social democracy, liberal).
+#   Imputed observations are flagged in any_lr_imputed and any_eu_imputed.
+#   NaN values (arising from 0/0 if a cabinet has zero seats after filtering)
+#   are set to NA and documented in 14_parlgov_quality_check.R.
+#
+# Coverage: all countries in nato_eu_robustness (24 countries including NO, GB).
+#   Period: year_start (1995) to year_end (2023).
+#
+# Output: scripts/output/data/parlgov/parlgov_country_year.rds
+#         scripts/output/data/parlgov/parlgov_country_year.csv
 # =============================================================================
 
 source(here::here("scripts", "00_setup.R"))

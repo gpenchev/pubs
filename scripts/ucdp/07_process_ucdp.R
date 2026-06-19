@@ -184,6 +184,39 @@ message("  Fail (sea-separated):   ", n_fail)
 ged_all  <- ged_sf
 ged_land <- ged_sf %>% dplyr::filter(land_contiguous)
 
+# --- Save per-country filter summary to quality_reports/ ----------------------
+# Records how many events each country-year would receive under the all-events
+# (threat_score) and land-contiguous-only (threat_land) approaches.
+# Useful for evaluating whether the 50 km sea-crossing threshold
+# is behaving as expected across the study period.
+
+filter_summary <- ged_sf %>%
+  sf::st_drop_geometry() %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(
+    n_all_events       = dplyr::n(),
+    n_land_contiguous  = sum(land_contiguous,  na.rm = TRUE),
+    n_sea_excluded     = sum(!land_contiguous, na.rm = TRUE),
+    pct_land           = round(100 * mean(land_contiguous, na.rm = TRUE), 1),
+    mean_best_all      = round(mean(best, na.rm = TRUE), 1),
+    mean_best_land     = round(
+      mean(best[land_contiguous], na.rm = TRUE), 1
+    ),
+    .groups            = "drop"
+  ) %>%
+  dplyr::arrange(year)
+
+readr::write_csv(
+  filter_summary,
+  file.path(path_reports, "filter_summary.csv")
+)
+
+message("Filter summary saved to quality_reports/filter_summary.csv")
+message("  Total events: ", sum(filter_summary$n_all_events),
+        " | Land-contiguous: ", sum(filter_summary$n_land_contiguous),
+        " (", round(100 * sum(filter_summary$n_land_contiguous) /
+                      sum(filter_summary$n_all_events), 1), "%)")
+
 # =============================================================================
 # PART 4: Threat score functions
 # =============================================================================

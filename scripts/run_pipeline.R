@@ -9,11 +9,13 @@
 #   1. Downloads (defence, fiscal, GDP, migration)
 #   2. Panel merge
 #   3. UCDP threat scores
-#   4. Quality checks (pre-ParlGov)
+#   4. Quality checks (pre-ParlGov, without political variables)
 #   5. ParlGov political variables
 #   5b. ParlGov quality check
+#   5c. Unit root check — AFTER ParlGov merge so all variables present
 #   6. Regression (weights, baseline, spatial tests, spatial panel,
 #      results table, diagnostics, structural breaks, revision checks)
+#   6b. GPR comparison and M13
 #   7. Publication outputs
 # =============================================================================
 
@@ -44,7 +46,6 @@ run_step("scripts/ucdp/08_merge_threat.R",           "08 Merge threat into panel
 run_step("scripts/quality/09_coverage_check.R",      "09 Coverage check")
 run_step("scripts/quality/10_balance_check.R",       "10 Balance check")
 run_step("scripts/quality/11_outlier_check.R",       "11 Outlier check")
-run_step("scripts/quality/12_unit_root_check.R",     "12 Unit root check")
 run_step("scripts/quality/13_summary_report.R",      "13 Summary report")
 
 # --- Step 5: ParlGov political variables --------------------------------------
@@ -55,18 +56,28 @@ run_step("scripts/parlgov/03_merge_parlgov.R",       "16 Merge ParlGov into pane
 # --- Step 5b: Political variable quality check --------------------------------
 run_step("scripts/quality/14_parlgov_quality_check.R", "17 ParlGov quality check")
 
+# --- Step 5c: Unit root check — runs AFTER ParlGov merge so all variables -----
+# --- including gov_left_right and gov_eu_position are present in the panel ----
+run_step("scripts/quality/12_unit_root_check.R",     "18 Unit root check (full panel)")
+
 # --- Step 6: Regression -------------------------------------------------------
-run_step("scripts/regression/01_spatial_weights.R",  "18 Spatial weights")
-run_step("scripts/regression/02_baseline_ols.R",     "19 Baseline OLS")
-run_step("scripts/regression/03_spatial_tests.R",    "20 Spatial tests")
-run_step("scripts/regression/04_spatial_panel.R",    "21 Spatial panel")
-run_step("scripts/regression/05_results_table.R",    "22 Results table")
-run_step("scripts/regression/07_diagnostics.R",      "23 Diagnostics")
-run_step("scripts/regression/08_structural_breaks.R","24 Structural breaks")
-run_step("scripts/regression/09_revision_checks.R",  "25 Revision checks")
+run_step("scripts/regression/01_spatial_weights.R",  "19 Spatial weights")
+run_step("scripts/regression/02_baseline_ols.R",     "20 Baseline OLS")
+run_step("scripts/regression/03_spatial_tests.R",    "21 Spatial tests")
+run_step("scripts/regression/04_spatial_panel.R",    "22 Spatial panel")
+run_step("scripts/regression/05_results_table.R",    "23 Results table")
+run_step("scripts/regression/07_diagnostics.R",      "24 Diagnostics")
+run_step("scripts/regression/08_structural_breaks.R","25 Structural breaks")
+run_step("scripts/regression/09_revision_checks.R",  "26 Revision checks")
+
+# --- Step 6b: GPR comparison — M13, threat vs GPR correlation -----------------
+run_step("scripts/regression/10_gpr_comparison.R",   "27 GPR comparison + M13")
 
 # --- Step 7: Publication outputs ----------------------------------------------
-run_step("scripts/regression/06_publication_table.R","26 Publication table")
+run_step("scripts/regression/06_publication_table.R","28 Publication table")
+
+# --- Step 8: App data preparation ---------------------------------------------
+run_step("scripts/regression/11_app_data.R",         "29 App data (Shiny)")
 
 message("\n", strrep("=", 60))
 message("PIPELINE COMPLETE")

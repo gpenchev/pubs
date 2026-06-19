@@ -141,6 +141,15 @@ if (gb_immig == 0) {
           "09_revision_checks.R Check F and G for full documentation.")
 }
 
+# --- Save coverage summary to quality_reports/ --------------------------------
+# Persists the per-country observation counts so that the evaluation phase
+# can verify data completeness before running regressions.
+readr::write_csv(
+  coverage_summary,
+  file.path(path_reports, "coverage_by_country.csv")
+)
+message("Coverage summary saved to quality_reports/coverage_by_country.csv")
+
 # --- Save ---------------------------------------------------------------------
 readr::write_csv(panel, file.path(path_data, "panel_eurostat.csv"))
 saveRDS(panel,          file.path(path_data, "panel_eurostat.rds"))

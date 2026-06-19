@@ -84,3 +84,109 @@ filter_panel <- function(data, countries = NULL, years = NULL, variable = NULL) 
   }
   out
 }
+
+# =============================================================================
+# App data loader — reads from scripts/output/app/ (autonomous CSV store)
+# =============================================================================
+
+#' Resolve the app data directory
+#'
+#' Tries here::here() first, then relative paths for shinyapps.io deployment.
+#' @return Character path to scripts/output/app/
+resolve_app_path <- function() {
+  candidates <- c(
+    tryCatch(here::here("scripts", "output", "app"),
+             error = function(e) ""),
+    file.path("scripts", "output", "app"),
+    file.path("..", "scripts", "output", "app")
+  )
+  for (p in candidates) {
+    if (nchar(p) > 0 && dir.exists(p)) return(p)
+  }
+  stop("Cannot locate scripts/output/app/ directory.")
+}
+
+#' Load all app-ready CSV files into a named list
+#'
+#' Each element is a data frame corresponding to one CSV in scripts/output/app/.
+#' The element name is the filename without .csv.
+#'
+#' @param path_app Optional path override. If NULL, resolved automatically.
+#' @return Named list of data frames.
+load_app_data <- function(path_app = NULL) {
+  if (is.null(path_app)) path_app <- resolve_app_path()
+
+  csv_files <- list.files(path_app, pattern = "\\.csv$", full.names = TRUE)
+  if (length(csv_files) == 0) stop("No CSV files found in ", path_app)
+
+  out <- lapply(csv_files, function(f) {
+    tryCatch(
+      readr::read_csv(f, show_col_types = FALSE),
+      error = function(e) {
+        warning("Could not load ", basename(f), ": ", e$message)
+        NULL
+      }
+    )
+  })
+  names(out) <- sub("\\.csv$", "", basename(csv_files))
+  out
+}
+
+#' Resolve the project root for .md file reading
+#'
+#' @return Character path to project root (one level above vis/)
+resolve_root_path <- function() {
+  candidates <- c(
+    tryCatch(here::here(), error = function(e) ""),
+    file.path(".."),
+    file.path(getwd(), "..")
+  )
+  for (p in candidates) {
+    if (nchar(p) > 0 &&
+        file.exists(file.path(p, "models", "results", "m1_m12.md"))) {
+      return(normalizePath(p))
+    }
+  }
+  # fallback: assume getwd() is vis/
+  normalizePath(file.path(getwd(), ".."))
+}
+
+#' Read a section from a markdown file
+#'
+#' If heading is "full", returns the entire file content.
+#' Otherwise extracts the section starting at the matching heading
+#' up to (but not including) the next same-level heading.
+#'
+#' @param root      Project root path (from resolve_root_path()).
+#' @param md_file   Relative path from root, e.g. "models/results/m1_m12.md".
+#' @param heading   Either "full" or a heading prefix like "## 9.".
+#' @return Character string of markdown content, or an error message.
+read_md_section <- function(root, md_file, heading = "full") {
+  path <- file.path(root, md_file)
+  if (!file.exists(path)) {
+    return(paste0("*File not found: `", md_file, "`*"))
+  }
+  lines <- readLines(path, warn = FALSE)
+  if (heading == "full") return(paste(lines, collapse = "\n"))
+
+  # Find the line that starts with the heading prefix
+  start_idx <- which(startsWith(trimws(lines), trimws(heading)))
+  if (length(start_idx) == 0) {
+    return(paste0("*Section `", heading, "` not found in `", md_file, "`*"))
+  }
+  start_idx <- start_idx[1]
+
+  # Determine heading level (number of leading #)
+  level <- nchar(regmatches(heading, regexpr("^#+", heading)))
+
+  # Find next heading of same or higher level after start
+  heading_pattern <- paste0("^#{1,", level, "} ")
+  end_idx <- which(grepl(heading_pattern, lines[(start_idx + 1):length(lines)]))
+  if (length(end_idx) == 0) {
+    end_line <- length(lines)
+  } else {
+    end_line <- start_idx + end_idx[1] - 1
+  }
+
+  paste(lines[start_idx:end_line], collapse = "\n")
+}

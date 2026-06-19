@@ -132,13 +132,15 @@ build_base_map <- function(panel,
 
 #' Add a conflict event layer to an existing leaflet map proxy
 #'
-#' Clears any existing event layer before adding the new one.
-#' Circle radius is scaled to log(fatalities + 1) capped at 20px.
+#' Accepts the pre-aggregated app_conflict_events.csv format:
+#'   columns: lon_grid, lat_grid, year, fatalities, n_events
+#' All events are land-contiguous (pre-filtered). The land_only argument
+#' is retained for API compatibility but has no effect on the aggregated data.
 #'
-#' @param map_proxy  A leaflet proxy object.
-#' @param ged_events Data frame of conflict events (ucdp_map_events.rds).
-#' @param yr         Integer year to display.
-#' @param land_only  Logical. If TRUE, only land-contiguous events are shown.
+#' @param map_proxy     A leaflet proxy object.
+#' @param ged_events    Data frame of aggregated conflict events.
+#' @param yr            Integer year to display.
+#' @param land_only     Ignored (all app events are land-contiguous).
 #' @return The updated leaflet proxy.
 add_event_layer <- function(map_proxy,
                             ged_events,
@@ -150,23 +152,30 @@ add_event_layer <- function(map_proxy,
 
   if (is.null(ged_events) || nrow(ged_events) == 0) return(map_proxy)
 
-  events_yr <- ged_events %>%
-    dplyr::filter(year == yr)
-
-  if (isTRUE(land_only)) {
-    events_yr <- events_yr %>% dplyr::filter(land_contiguous)
+  # Support both raw (has lon/lat) and aggregated (has lon_grid/lat_grid) formats
+  if ("lon_grid" %in% names(ged_events)) {
+    events_yr <- ged_events %>%
+      dplyr::filter(year == yr) %>%
+      dplyr::rename(lon = lon_grid, lat = lat_grid,
+                    best = fatalities)
+  } else {
+    events_yr <- ged_events %>%
+      dplyr::filter(year == yr)
+    if (isTRUE(land_only) && "land_contiguous" %in% names(events_yr)) {
+      events_yr <- events_yr %>% dplyr::filter(land_contiguous)
+    }
   }
 
   if (nrow(events_yr) == 0) return(map_proxy)
 
   events_yr <- events_yr %>%
     dplyr::mutate(
-      radius      = pmin(log(best + 1) * 2, 20),
-      point_color = ifelse(land_contiguous, "#E15759", "#aaaaaa"),
-      popup_ev    = paste0(
-        "<strong>", conflict_name, "</strong><br/>",
+      radius   = pmin(log(best + 1) * 2.5, 22),
+      popup_ev = paste0(
+        "<strong>Conflict cluster</strong><br/>",
         "Fatalities: ", best, "<br/>",
-        "Land-contiguous: ", land_contiguous
+        "Events: ", if ("n_events" %in% names(events_yr)) n_events else 1, "<br/>",
+        "Year: ", year
       )
     )
 
@@ -176,21 +185,37 @@ add_event_layer <- function(map_proxy,
       lng         = ~lon,
       lat         = ~lat,
       radius      = ~radius,
-      color       = ~point_color,
-      fillColor   = ~point_color,
-      fillOpacity = 0.7,
-      opacity     = 0.9,
+      color       = "#E15759",
+      fillColor   = "#E15759",
+      fillOpacity = 0.65,
+      opacity     = 0.85,
       weight      = 1,
       popup       = ~popup_ev,
-      label       = ~conflict_name,
+      label       = ~paste0(best, " fatalities"),
       group       = "Conflict events"
     ) %>%
     leaflet::addLegend(
       position = "bottomleft",
-      colors   = c("#E15759", "#aaaaaa"),
-      labels   = c("Land-contiguous", "Sea-separated"),
+      colors   = "#E15759",
+      labels   = "Land-contiguous conflict (fatalities)",
       title    = "Conflict events",
       opacity  = 0.8,
       layerId  = "event_legend"
     )
+}
+
+#' Lazy-load EU geometries (cached in caller environment)
+#'
+#' Call once inside a Shiny server function using a reactiveVal or
+#' local variable. Falls back gracefully to NULL on error.
+#'
+#' @return sf data frame or NULL
+lazy_eu_geometries <- function() {
+  tryCatch(
+    load_eu_geometries(),
+    error = function(e) {
+      message("Could not load EU geometries: ", e$message)
+      NULL
+    }
+  )
 }

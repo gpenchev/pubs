@@ -2,6 +2,28 @@
 # 02_baseline_ols.R
 # Baseline pooled OLS and within (FE) panel regression
 # No spatial component — establishes baseline coefficients
+#
+# Models estimated:
+#   M1 — Pooled OLS (no fixed effects)
+#   M2 — Country fixed effects
+#   M3 — Two-way fixed effects (country + year) — primary non-spatial baseline
+#   M4 — Two-way FE with regime × threat interactions
+#
+# Regression sample: 22 countries (nato_eu_core minus LU)
+#   GB: immigration_rate is NA for all years — GB rows are dropped only
+#       in models that include immigration_rate. GB contributes observations
+#       for all other model specifications.
+#   NO: excluded from nato_eu_core entirely (insufficient Eurostat fiscal
+#       coverage). Norway does not appear in any regression model.
+#   LU: excluded as structural outlier (defence/GDP < 0.2% throughout).
+#
+# Effective N: 529 obs, 22 countries, 1998–2023
+#   (immigration data unavailable pre-2000 for most countries; rows with
+#    NA regressors are silently dropped by plm/lm)
+#
+# Standard errors: Driscoll-Kraay HC3 (robust to cross-sectional dependence
+#   and heteroskedasticity; preferred over HC1 for N = 22 clusters).
+#
 # Output: baseline_ols_results.rds
 # =============================================================================
 

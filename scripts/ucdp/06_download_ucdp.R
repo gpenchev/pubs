@@ -3,14 +3,14 @@
 # Download UCDP Georeferenced Event Dataset (GED)
 # Source: https://ucdp.uu.se/downloads/
 # The GED global file is downloaded as a CSV and saved locally.
-# Version used: UCDP GED 25.1 (covers up to end 2024)
+# Version used: UCDP GED 26.1 (covers up to end 2025)
 # =============================================================================
 
 source(here::here("scripts", "00_setup.R"))
 
 # --- Manual download note -----------------------------------------------------
 # Download the global CSV from:
-#   https://ucdp.uu.se/downloads/ged/ged251-csv.zip
+#   https://ucdp.uu.se/downloads/ged/ged261-csv.zip
 # Unzip and place the file at:
 #   scripts/output/data/ucdp_ged_raw.csv
 
@@ -19,7 +19,7 @@ ged_path <- file.path(path_data, "ucdp_ged_raw.csv")
 if (!file.exists(ged_path)) {
   stop(
     "UCDP GED file not found at: ", ged_path, "\n",
-    "Please download GED 25.1 from https://ucdp.uu.se/downloads/ ",
+    "Please download GED 26.1 from https://ucdp.uu.se/downloads/ ",
     "and place at the path above."
   )
 }
@@ -36,7 +36,7 @@ missing_cols  <- setdiff(required_cols, names(ged_header))
 if (length(missing_cols) > 0) {
   stop("UCDP GED file is missing required columns: ",
        paste(missing_cols, collapse = ", "),
-       "\nCheck that the correct GED version (25.1) has been downloaded.")
+       "\nCheck that the correct GED version has been downloaded.")
 }
 
 # --- Load ---------------------------------------------------------------------
@@ -60,7 +60,7 @@ ged_raw <- readr::read_csv(
   )
 )
 
-message("GED 25.1 loaded: ", nrow(ged_raw), " total events, years ",
+message("GED 26.1 loaded: ", nrow(ged_raw), " total events, years ",
         min(ged_raw$year, na.rm = TRUE), "-", max(ged_raw$year, na.rm = TRUE))
 
 # --- Filter to European theatre and relevant years ----------------------------
@@ -77,6 +77,27 @@ ged_europe <- ged_raw %>%
 
 message("Events in European bounding box (", year_start, "-", year_end, "): ",
         nrow(ged_europe))
+
+# --- Diagnostic: event type breakdown -----------------------------------------
+# type_of_violence: 1 = state-based, 2 = non-state, 3 = one-sided.
+# 07_process_ucdp.R filters to type_of_violence == 1 (state-based only).
+# This message surfaces any unexpected type distribution before processing.
+
+tov_table <- table(ged_europe$type_of_violence)
+message("European events by type_of_violence:")
+for (tov in names(tov_table)) {
+  label <- switch(tov,
+    "1" = "State-based conflict (used in analysis)",
+    "2" = "Non-state conflict (excluded)",
+    "3" = "One-sided violence (excluded)",
+    "Unknown type"
+  )
+  message("  type ", tov, " [", label, "]: ", tov_table[[tov]])
+}
+
+pct_state <- round(100 * sum(ged_europe$type_of_violence == 1) / nrow(ged_europe), 1)
+message("State-based events: ", sum(ged_europe$type_of_violence == 1),
+        " (", pct_state, "% of European events)")
 
 # --- Save ---------------------------------------------------------------------
 saveRDS(ged_europe, file.path(path_data, "ucdp_ged_europe.rds"))

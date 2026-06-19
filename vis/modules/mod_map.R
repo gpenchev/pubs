@@ -39,6 +39,11 @@ mod_map_server <- function(id, panel_data, ged_events = NULL,
                            eu_geometries = NULL) {
   moduleServer(id, function(input, output, session) {
 
+    # Lazy-load geometries once per session (not at app startup)
+    geo <- local({
+      if (!is.null(eu_geometries)) eu_geometries else lazy_eu_geometries()
+    })
+
     output$map <- leaflet::renderLeaflet({
       req(input$variable, input$year)
       tryCatch(
@@ -47,7 +52,7 @@ mod_map_server <- function(id, panel_data, ged_events = NULL,
           yr            = input$year,
           variable      = input$variable,
           palette_type  = input$palette,
-          eu_geometries = eu_geometries
+          eu_geometries = geo
         ),
         error = function(e) {
           shiny::showNotification(

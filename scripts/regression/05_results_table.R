@@ -155,13 +155,47 @@ print(fit_summary)
 message("\nCore results table (FE dummies excluded):")
 print(results_wide)
 
+# --- M5 vs M8 AIC comparison --------------------------------------------------
+# M5: SAR with primary threat measure (threat_land_log, land-contiguous events)
+# M8: SAR with robustness threat measure (threat_score_log, all events within 500km)
+# A lower AIC for M5 confirms that the land-contiguity filter adds information
+# beyond the all-events measure. This comparison is reported in the robustness
+# section of the article.
+
+m5_aic <- tryCatch(AIC(spatial$m5_sar), error = function(e) NA_real_)
+m8_aic <- tryCatch(AIC(spatial$m8_sar_robust), error = function(e) NA_real_)
+
+m5_m8_aic_comparison <- data.frame(
+  model         = c("M5: SAR (threat_land_log)", "M8: SAR (threat_score_log)"),
+  threat_var    = c("threat_land_log", "threat_score_log"),
+  aic           = round(c(m5_aic, m8_aic), 3),
+  delta_aic     = round(c(0, m8_aic - m5_aic), 3),
+  preferred     = c(
+    ifelse(!is.na(m5_aic) & !is.na(m8_aic) & m5_aic <= m8_aic, "YES", ""),
+    ifelse(!is.na(m5_aic) & !is.na(m8_aic) & m8_aic <  m5_aic, "YES", "")
+  ),
+  interpretation = c(
+    "Land-contiguous events only (primary measure)",
+    "All events within 500km (robustness measure)"
+  )
+)
+
+message("\nM5 vs M8 AIC comparison (primary vs robustness threat measure):")
+print(m5_m8_aic_comparison)
+
+readr::write_csv(
+  m5_m8_aic_comparison,
+  file.path(path_data, "m5_m8_aic_comparison.csv")
+)
+
 regression_tables <- list(
-  results_long  = results_long,
-  results_core  = results_core,
-  results_wide  = results_wide,
-  moran_summary = moran_summary,
-  fit_summary   = fit_summary,
-  lr_summary    = lr_summary
+  results_long         = results_long,
+  results_core         = results_core,
+  results_wide         = results_wide,
+  moran_summary        = moran_summary,
+  fit_summary          = fit_summary,
+  lr_summary           = lr_summary,
+  m5_m8_aic_comparison = m5_m8_aic_comparison
 )
 
 saveRDS(regression_tables,

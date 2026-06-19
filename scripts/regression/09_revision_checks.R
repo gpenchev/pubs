@@ -320,15 +320,22 @@ formula_no_immig <- paste(
   "gov_left_right + gov_eu_position + election_year"
 )
 
+# LU is excluded from the weight matrix (structural outlier, already excluded
+# from primary regressions). The no-immigration panel includes LU because
+# LU has no immigration_rate NA issue — but LU must be dropped here to match
+# the sp_weights_f country list (regression_countries + GB, no LU).
 reg_data_no_immig <- panel %>%
-  dplyr::filter(!is.na(defence_gdp),
-                !is.na(threat_land_log),
-                !is.na(debt_gdp),
-                !is.na(deficit_gdp),
-                !is.na(gdp_growth),
-                !is.na(gov_left_right),
-                !is.na(gov_eu_position),
-                !is.na(election_year)) %>%
+  dplyr::filter(
+    country != "LU",
+    !is.na(defence_gdp),
+    !is.na(threat_land_log),
+    !is.na(debt_gdp),
+    !is.na(deficit_gdp),
+    !is.na(gdp_growth),
+    !is.na(gov_left_right),
+    !is.na(gov_eu_position),
+    !is.na(election_year)
+  ) %>%
   dplyr::mutate(
     country = as.character(country),
     year    = as.integer(year),
@@ -343,18 +350,62 @@ message("Countries: ",
 message("GB rows in no-immigration sample: ",
         sum(reg_data_no_immig$country == "GB"))
 
-m_f_sar_no_immig <- tryCatch(
+# The primary sp_weights was built on 23 countries (regression_countries,
+# which excludes LU). Check F includes GB (24th country) which is absent
+# from sp_weights$countries. We need a 24-country weight matrix that
+# includes GB. Build it here using the same queen contiguity approach
+# but with all 24 nato_eu_core countries including GB (still excluding LU).
+sp_weights_f <- tryCatch({
+  all_ne_f <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") %>%
+    dplyr::mutate(iso_a2 = dplyr::case_when(
+      name == "France" ~ "FR", name == "Norway" ~ "NO", TRUE ~ iso_a2
+    )) %>%
+    sf::st_transform(3035)
+
+  # regression_countries excludes LU (23 countries). Add GB to get 23 + GB = 23.
+  # (LU is already absent from regression_countries, so no double-exclusion.)
+  countries_f <- sort(unique(c(regression_countries, "GB")))
+
+  polys_f <- all_ne_f %>%
+    dplyr::filter(iso_a2 %in% countries_f) %>%
+    dplyr::select(country = iso_a2, geometry) %>%
+    dplyr::arrange(country)
+
+  message("Check F polygon count: ", nrow(polys_f))
+
+  # Use k-nearest-neighbour (k=4, symmetric) weight matrix.
+  # Queen contiguity leaves GB isolated (island); knn avoids that entirely
+  # while producing geographically sensible neighbours (BE, DE, DK, FR, NL).
+  coords_f <- sf::st_coordinates(sf::st_centroid(sf::st_geometry(polys_f)))
+  nb_knn   <- spdep::knn2nb(spdep::knearneigh(coords_f, k = 4), sym = TRUE)
+
+  gb_idx   <- which(polys_f$country == "GB")
+  message("GB (idx ", gb_idx, ") knn neighbours: ",
+          paste(polys_f$country[nb_knn[[gb_idx]]], collapse = ", "))
+
+  W_queen_f <- spdep::nb2listw(nb_knn, style = "W", zero.policy = TRUE)
+
+  list(
+    countries = polys_f$country,
+    W_queen   = W_queen_f
+  )
+}, error = function(e) {
+  message("Check F weight matrix build failed: ", e$message)
+  NULL
+})
+
+m_f_sar_no_immig <- tryCatch({
+  if (is.null(sp_weights_f)) stop("24-country weight matrix not available")
   run_sar_pooled(
     data         = reg_data_no_immig,
     formula_vars = formula_no_immig,
-    sp_weights   = sp_weights,
+    sp_weights   = sp_weights_f,
     label        = "Check F: SAR no immigration_rate"
-  ),
-  error = function(e) {
-    message("Check F SAR failed: ", e$message)
-    NULL
-  }
-)
+  )
+}, error = function(e) {
+  message("Check F SAR failed: ", e$message)
+  NULL
+})
 
 vars_f <- c("threat_land_log", "debt_gdp", "deficit_gdp",
             "gdp_growth", "gov_left_right", "gov_eu_position")
@@ -455,19 +506,438 @@ message("\nCheck G complete: GB confirmed as structural outlier. ",
         "not a data availability limitation.")
 
 # =============================================================================
+# Check H: Bulgaria 2019 sensitivity
+#
+# BG 2019 has the highest Cook's D in the sample (0.099) — an isolated spike
+# to 3.14% GDP when BG's threat score is near-zero (0.016) and the fiscal
+# position is surplus. The spike is attributed to a one-time F-16 procurement
+# contract accounting entry, not a sustained policy change. BG has no coherent
+# defence policy orientation — spending fell back to 1.59% in 2020 and 1.51%
+# in 2021 immediately after.
+#
+# This check drops the single BG 2019 observation and re-estimates:
+#   (a) M5 SAR — does the threat coefficient change?
+#   (b) M4 FE+regime — does the regime2 interaction (−0.256*) survive?
+#   (c) M3 FE two-way — baseline comparison
+#
+# If all three are stable, the BG 2019 spike does not drive the results.
+# If the regime2 interaction shifts materially, a caveat is needed.
+# =============================================================================
+message("\n", strrep("=", 60))
+message("CHECK H: Bulgaria 2019 sensitivity (Cook's D = 0.099)")
+message(strrep("=", 60))
+
+reg_data_no_bg2019 <- reg_data %>%
+  dplyr::filter(!(country == "BG" & year == 2019)) %>%
+  dplyr::mutate(
+    country_f = as.factor(country),
+    year_f    = as.factor(year)
+  )
+
+message("Observations dropped: ", nrow(reg_data) - nrow(reg_data_no_bg2019),
+        " (BG 2019 only)")
+message("Remaining N: ", nrow(reg_data_no_bg2019))
+
+# --- M3 two-way FE without BG 2019 ---
+pdata_h <- plm::pdata.frame(reg_data_no_bg2019,
+                             index = c("country", "year"))
+
+m3_no_bg2019 <- tryCatch(
+  plm::plm(
+    defence_gdp ~ threat_land_log + debt_gdp + deficit_gdp +
+      gdp_growth + immigration_rate + gov_left_right +
+      gov_eu_position + election_year,
+    data   = pdata_h,
+    effect = "twoways",
+    model  = "within"
+  ),
+  error = function(e) { message("M3 no-BG2019 failed: ", e$message); NULL }
+)
+
+# --- M4 FE+regime without BG 2019 ---
+m4_no_bg2019 <- tryCatch(
+  plm::plm(
+    defence_gdp ~ threat_land_log * regime + debt_gdp + deficit_gdp +
+      gdp_growth + immigration_rate + gov_left_right +
+      gov_eu_position + election_year,
+    data   = pdata_h,
+    effect = "twoways",
+    model  = "within"
+  ),
+  error = function(e) { message("M4 no-BG2019 failed: ", e$message); NULL }
+)
+
+# --- M5 SAR without BG 2019 ---
+m5_no_bg2019 <- tryCatch(
+  run_sar_pooled(
+    data         = reg_data_no_bg2019 %>%
+      dplyr::mutate(country = as.character(country),
+                    year    = as.integer(year)),
+    formula_vars = paste(
+      "defence_gdp ~ threat_land_log + debt_gdp + deficit_gdp +",
+      "gdp_growth + immigration_rate + gov_left_right +",
+      "gov_eu_position + election_year"
+    ),
+    sp_weights   = sp_weights,
+    label        = "M5 no BG-2019"
+  ),
+  error = function(e) { message("M5 no-BG2019 SAR failed: ", e$message); NULL }
+)
+
+# --- Build comparison table ---
+get_cf <- function(m, v, type = "sar") {
+  if (is.null(m)) return(c(NA_real_, NA_real_, NA_real_))
+  if (type == "plm") {
+    cf <- tryCatch(coef(m)[v], error = function(e) NA_real_)
+    se <- tryCatch(sqrt(diag(sandwich::vcovHC(m, type = "HC3")))[v],
+                   error = function(e) NA_real_)
+  } else {
+    cf <- tryCatch(m$coefficients[which(names(m$coefficients) == v)],
+                   error = function(e) NA_real_)
+    se <- tryCatch(m$rest.se[which(names(m$coefficients) == v)],
+                   error = function(e) NA_real_)
+  }
+  p <- tryCatch(2 * pnorm(abs(cf / se), lower.tail = FALSE),
+                error = function(e) NA_real_)
+  c(round(cf, 5), round(se, 5), round(p, 4))
+}
+
+# Rho values needed inside bg_sensitivity data.frame — define before use
+rho_full   <- tryCatch(as.numeric(spatial$m5_sar$rho),   error = function(e) NA)
+rho_no_bg  <- tryCatch(as.numeric(m5_no_bg2019$rho),     error = function(e) NA)
+se_no_bg   <- tryCatch(as.numeric(m5_no_bg2019$rho.se),  error = function(e) NA)
+p_no_bg    <- 2 * pnorm(abs(rho_no_bg / se_no_bg), lower.tail = FALSE)
+
+# Build the comparison as explicit pairs to avoid lag() cross-pair artefacts.
+# Each pair is (full_coef, no_bg19_coef) for the same quantity.
+cf_m3_full    <- get_cf(baseline$m3_fe_twoway,  "threat_land_log",         "plm")
+cf_m3_nobg    <- get_cf(m3_no_bg2019,           "threat_land_log",         "plm")
+cf_m4r2_full  <- get_cf(baseline$m4_fe_regime,  "threat_land_log:regime2", "plm")
+cf_m4r2_nobg  <- get_cf(m4_no_bg2019,           "threat_land_log:regime2", "plm")
+cf_m5_full    <- get_cf(spatial$m5_sar,         "threat_land_log",         "sar")
+cf_m5_nobg    <- get_cf(m5_no_bg2019,           "threat_land_log",         "sar")
+
+bg_sensitivity <- data.frame(
+  comparison    = c("M3 threat_land_log",
+                    "M4 threat×regime2",
+                    "M5 SAR threat_land_log",
+                    "M5 SAR rho"),
+  coef_full     = round(c(cf_m3_full[1], cf_m4r2_full[1],
+                           cf_m5_full[1], rho_full), 5),
+  coef_no_bg19  = round(c(cf_m3_nobg[1], cf_m4r2_nobg[1],
+                           cf_m5_nobg[1], rho_no_bg), 5),
+  se_full       = round(c(cf_m3_full[2], cf_m4r2_full[2],
+                           cf_m5_full[2], rho_full / abs(rho_full) *
+                             as.numeric(spatial$m5_sar$rho.se)), 5),
+  p_full        = round(c(cf_m3_full[3], cf_m4r2_full[3],
+                           cf_m5_full[3], 2 * pnorm(abs(rho_full /
+                             as.numeric(spatial$m5_sar$rho.se)),
+                             lower.tail = FALSE)), 4),
+  p_no_bg19     = round(c(cf_m3_nobg[3], cf_m4r2_nobg[3],
+                           cf_m5_nobg[3], p_no_bg), 4)
+) %>%
+  dplyr::mutate(
+    abs_change     = round(abs(coef_no_bg19 - coef_full), 5),
+    pct_change     = round(100 * abs_change / abs(coef_full), 1),
+    within_1se     = abs_change < se_full,
+    sign_preserved = sign(coef_full) == sign(coef_no_bg19),
+    sig_preserved  = p_no_bg19 < 0.05,
+    stable         = within_1se & sign_preserved & sig_preserved
+  )
+
+message("BG 2019 sensitivity results:")
+print(bg_sensitivity)
+
+message("Rho M5 full:      ", round(rho_full,  4))
+message("Rho M5 no-BG2019: ", round(rho_no_bg, 4), " (p=", round(p_no_bg, 4), ")")
+
+verdict <- dplyr::case_when(
+  all(bg_sensitivity$stable, na.rm = TRUE) ~
+    "STABLE — BG 2019 does not drive results. No caveat needed.",
+  all(bg_sensitivity$sign_preserved, na.rm = TRUE) &
+    all(bg_sensitivity$sig_preserved, na.rm = TRUE) ~
+    "ROBUST — signs and significance preserved; magnitudes shift slightly.",
+  any(!bg_sensitivity$sign_preserved, na.rm = TRUE) ~
+    "UNSTABLE — sign reversal detected. Add caveat.",
+  TRUE ~ "INCONCLUSIVE — check failed for some models."
+)
+message("\nVerdict: ", verdict)
+
+readr::write_csv(bg_sensitivity,
+                 file.path(path_data, "bg2019_sensitivity.csv"))
+
+# =============================================================================
+# Check I: Cross-sectional OLS for 2022 and 2023
+#
+# Two-way FE models absorb universal shocks via year dummies. The 2022
+# Russian invasion caused a continent-wide mean threat spike of +4.3 SD
+# above country means — essentially a single common event. The year dummy
+# for 2022 therefore absorbs the *level* shift. However, if threat also
+# predicts defence cross-sectionally within 2022 (i.e., countries with
+# higher threat *relative to neighbours* spent more in that year), the
+# within-year gradient survives and the FE absorption is an identification
+# artefact, not a real-world finding.
+#
+# Test: simple cross-sectional OLS for 2022 alone and 2023 alone.
+# No year FE (single year), no country FE (cross-section, N=22).
+# Variables: threat_land_log, debt_gdp, deficit_gdp, gdp_growth.
+# If threat is significant in either year, the within-year gradient exists.
+# This also provides supplementary evidence for Regime 4 (N=44 too small
+# for panel FE identification, but cross-section gives 22 obs per year).
+# =============================================================================
+message("\n", strrep("=", 60))
+message("CHECK I: Cross-sectional OLS for 2022 and 2023")
+message(strrep("=", 60))
+
+# Use panel (full 24 countries) but exclude GB (structural outlier) and LU
+# (micro-state, defence_gdp structurally below 1%). Keep 22 regression countries.
+panel_cs <- panel %>%
+  dplyr::filter(
+    !country %in% c("GB", "LU"),
+    !is.na(defence_gdp),
+    !is.na(threat_land_log),
+    !is.na(debt_gdp),
+    !is.na(deficit_gdp),
+    !is.na(gdp_growth)
+  )
+
+run_cs_ols <- function(yr) {
+  d <- panel_cs %>% dplyr::filter(year == yr)
+  m <- tryCatch(
+    lm(defence_gdp ~ threat_land_log + debt_gdp + deficit_gdp + gdp_growth,
+       data = d),
+    error = function(e) { message("CS OLS ", yr, " failed: ", e$message); NULL }
+  )
+  if (is.null(m)) return(NULL)
+  cf  <- coef(m)
+  se  <- sqrt(diag(vcov(m)))
+  pv  <- 2 * pt(abs(cf / se), df = m$df.residual, lower.tail = FALSE)
+  r2  <- summary(m)$r.squared
+  adj <- summary(m)$adj.r.squared
+  message("\n--- Cross-section OLS ", yr, " (N=", nrow(d), ") ---")
+  message(sprintf("  threat_land_log: beta=%.4f  SE=%.4f  p=%.4f",
+                  cf["threat_land_log"], se["threat_land_log"],
+                  pv["threat_land_log"]))
+  message(sprintf("  debt_gdp:        beta=%.4f  SE=%.4f  p=%.4f",
+                  cf["debt_gdp"], se["debt_gdp"], pv["debt_gdp"]))
+  message(sprintf("  deficit_gdp:     beta=%.4f  SE=%.4f  p=%.4f",
+                  cf["deficit_gdp"], se["deficit_gdp"], pv["deficit_gdp"]))
+  message(sprintf("  R2=%.3f  Adj-R2=%.3f", r2, adj))
+  list(model = m, year = yr, n = nrow(d),
+       threat_coef = cf["threat_land_log"],
+       threat_se   = se["threat_land_log"],
+       threat_p    = pv["threat_land_log"],
+       debt_coef   = cf["debt_gdp"],
+       debt_se     = se["debt_gdp"],
+       debt_p      = pv["debt_gdp"],
+       r_squared   = r2, adj_r_squared = adj)
+}
+
+cs_2022 <- run_cs_ols(2022)
+cs_2023 <- run_cs_ols(2023)
+
+check_i_table <- dplyr::bind_rows(
+  if (!is.null(cs_2022)) data.frame(
+    year          = 2022,
+    n_obs         = cs_2022$n,
+    threat_coef   = round(cs_2022$threat_coef, 4),
+    threat_se     = round(cs_2022$threat_se,   4),
+    threat_p      = round(cs_2022$threat_p,    4),
+    debt_coef     = round(cs_2022$debt_coef,   4),
+    debt_p        = round(cs_2022$debt_p,      4),
+    r_squared     = round(cs_2022$r_squared,   3),
+    threat_sig    = cs_2022$threat_p < 0.05
+  ),
+  if (!is.null(cs_2023)) data.frame(
+    year          = 2023,
+    n_obs         = cs_2023$n,
+    threat_coef   = round(cs_2023$threat_coef, 4),
+    threat_se     = round(cs_2023$threat_se,   4),
+    threat_p      = round(cs_2023$threat_p,    4),
+    debt_coef     = round(cs_2023$debt_coef,   4),
+    debt_p        = round(cs_2023$debt_p,      4),
+    r_squared     = round(cs_2023$r_squared,   3),
+    threat_sig    = cs_2023$threat_p < 0.05
+  )
+)
+
+message("\nCheck I summary table:")
+print(check_i_table)
+
+# Verdict: both years significant → within-year gradient confirmed
+n_sig_i <- sum(check_i_table$threat_sig, na.rm = TRUE)
+verdict_i <- dplyr::case_when(
+  n_sig_i == 2 ~
+    "CONFIRMED — threat significant in both 2022 and 2023 cross-sections. Year FE absorption is an identification artefact, not a real-world non-response.",
+  n_sig_i == 1 ~
+    "PARTIAL — threat significant in one of two cross-sections. Within-year gradient partially confirmed.",
+  TRUE ~
+    "NOT CONFIRMED — threat not significant in either cross-section."
+)
+message("\nCheck I verdict: ", verdict_i)
+
+readr::write_csv(check_i_table,
+                 file.path(path_reports, "cross_section_2022_2023.csv"))
+
+# =============================================================================
+# Check J: Immigration × post-2022 interaction SAR
+#
+# The immigration_rate variable has a counter-intuitive positive coefficient
+# (+0.012) in M5. The reviewer attributes this to Eastern European frontline
+# states having both high immigration and high threat. However, the data
+# shows the high-immigration countries are a mix: LT, EE are Eastern/high-
+# threat but DE, BE, DK are Western/low-threat. The real driver is more
+# specific: in 2022-2023 the Baltic states and Poland absorbed massive
+# Ukrainian refugee inflows (LT: 31%, EE: 37% immigration rate in 2022)
+# coinciding with the threat spike. This may create a distinct post-2022
+# mechanism separate from the general social-budget-competition effect.
+#
+# Test: SAR with immigration_rate + immigration_rate:post2022 interaction.
+# Compares baseline immigration effect (pre-2022) against additional
+# post-2022 refugee-inflow effect. If interaction p<0.05, the two mechanisms
+# are empirically distinguishable. If not, M5 immigration coefficient is
+# a pooled average of both periods and the reviewer's concern is addressed
+# by framing rather than re-specification.
+# =============================================================================
+message("\n", strrep("=", 60))
+message("CHECK J: Immigration x post-2022 SAR interaction")
+message(strrep("=", 60))
+
+# Build a clean complete-cases data frame from reg_data (avoids stale
+# mutations from Check C such as threat_orth and country_f/year_f factors)
+reg_data_j <- reg_data[complete.cases(reg_data), ] %>%
+  dplyr::mutate(
+    country        = as.character(country),
+    year           = as.integer(year),
+    post2022       = as.integer(year >= 2022),
+    immig_post2022 = immigration_rate * post2022
+  )
+
+formula_j <- paste(
+  "defence_gdp ~ threat_land_log + debt_gdp +",
+  "deficit_gdp + gdp_growth + immigration_rate +",
+  "immig_post2022 +",
+  "gov_left_right + gov_eu_position + election_year"
+)
+
+message("Check J: estimating SAR with immigration x post2022 interaction...")
+message("N = ", nrow(reg_data_j), " (same as M5 complete cases)")
+
+m_j_sar <- tryCatch(
+  run_sar_pooled(
+    data         = reg_data_j,
+    formula_vars = formula_j,
+    sp_weights   = sp_weights,
+    label        = "Check J: SAR immigration x post2022"
+  ),
+  error = function(e) {
+    message("Check J SAR failed: ", e$message)
+    NULL
+  }
+)
+
+check_j_table <- NULL
+verdict_j     <- "Check J SAR estimation failed."
+
+if (!is.null(m_j_sar)) {
+  # coef(m_j_sar) includes rho as first element; rest.se excludes rho/sigma.
+  # Use rest.se matched by name to avoid off-by-one index shift from resvar.
+  cf_j   <- coef(m_j_sar)
+  se_all <- m_j_sar$rest.se                        # 56 SEs, no rho
+  se_j   <- setNames(se_all, names(cf_j)[-1])      # align names (skip rho)
+  pv_j   <- 2 * pnorm(abs(cf_j[-1] / se_j), lower.tail = FALSE)
+  cf_j   <- cf_j[-1]                               # drop rho for table
+
+  vars_j_report <- c("threat_land_log", "immigration_rate", "immig_post2022",
+                     "debt_gdp", "deficit_gdp", "gov_left_right",
+                     "gov_eu_position")
+
+  check_j_table <- purrr::map_dfr(vars_j_report, function(v) {
+    if (!v %in% names(cf_j)) return(NULL)
+    data.frame(
+      variable    = v,
+      coef        = round(cf_j[v],           5),
+      se          = round(se_j[v],           5),
+      z_stat      = round(cf_j[v] / se_j[v], 3),
+      p_value     = round(pv_j[v],           4),
+      significant = pv_j[v] < 0.05
+    )
+  })
+
+  rho_j  <- as.numeric(m_j_sar$rho)
+  se_rho_j <- tryCatch(as.numeric(m_j_sar$rho.se), error = function(e) NA)
+  p_rho_j  <- 2 * pnorm(abs(rho_j / se_rho_j), lower.tail = FALSE)
+
+  # AIC comparison via log-likelihoods (spatialreg stores LL directly)
+  ll_j  <- tryCatch(as.numeric(m_j_sar$LL),        error = function(e) NA)
+  ll_m5 <- tryCatch(as.numeric(spatial$m5_sar$LL),  error = function(e) NA)
+  k_j   <- length(cf_j) + 1L   # +1 for rho
+  k_m5  <- length(coef(spatial$m5_sar)) + 1L
+  aic_j  <- tryCatch(-2 * ll_j  + 2 * k_j,  error = function(e) NA)
+  aic_m5 <- tryCatch(-2 * ll_m5 + 2 * k_m5, error = function(e) NA)
+
+  message("\nCheck J coefficient table:")
+  print(check_j_table)
+  message(sprintf("\nrho (Check J): %.4f  SE=%.4f  p=%.4f", rho_j, se_rho_j, p_rho_j))
+  message(sprintf("AIC Check J: %.2f   AIC M5: %.2f   delta: %.2f",
+                  aic_j, aic_m5, aic_j - aic_m5))
+
+  # Extract the interaction coefficient for verdict
+  immig_base_p    <- tryCatch(pv_j["immigration_rate"],   error = function(e) NA)
+  immig_inter_p   <- tryCatch(pv_j["immig_post2022"],     error = function(e) NA)
+  immig_inter_cf  <- tryCatch(cf_j["immig_post2022"],     error = function(e) NA)
+
+  verdict_j <- dplyr::case_when(
+    !is.na(immig_inter_p) & immig_inter_p < 0.05 & immig_inter_cf > 0 ~
+      paste0("DUAL MECHANISM CONFIRMED — immigration_rate baseline=",
+             round(cf_j["immigration_rate"], 4),
+             " (p=", round(immig_base_p, 3), "); ",
+             "post-2022 refugee interaction=+",
+             round(immig_inter_cf, 4),
+             " (p=", round(immig_inter_p, 3),
+             "). Post-2022 inflow adds distinct positive spending pressure."),
+    !is.na(immig_inter_p) & immig_inter_p < 0.05 & immig_inter_cf < 0 ~
+      paste0("CROWDING-OUT CONFIRMED — immigration_rate baseline=",
+             round(cf_j["immigration_rate"], 4),
+             " (p=", round(immig_base_p, 3), "); ",
+             "post-2022 refugee interaction=",
+             round(immig_inter_cf, 4),
+             " (p=", round(immig_inter_p, 3),
+             "). Refugee inflow suppresses defence spending in high-threat countries."),
+    !is.na(immig_inter_p) & immig_inter_p >= 0.05 ~
+      paste0("NO DISTINCT MECHANISM — interaction p=",
+             round(immig_inter_p, 3),
+             ". Immigration effect is a pooled average across all years. ",
+             "Address reviewer concern via discussion framing only."),
+    TRUE ~ "INCONCLUSIVE — Check J estimation produced unexpected output."
+  )
+  message("\nCheck J verdict: ", verdict_j)
+
+  readr::write_csv(check_j_table,
+                   file.path(path_reports, "immigration_interaction_check.csv"))
+}
+
+# =============================================================================
 # Save all revision check results
 # =============================================================================
 revision_checks <- list(
-  persistence_summary  = persistence_summary,
-  power_analysis       = power_analysis,
-  coef_comparison      = coef_comparison,
-  corr_mat             = corr_mat,
-  source_check         = source_check,
-  check_f_comparison   = check_f_comparison,
-  rho_m5               = rho_m5,
-  rho_no_immig         = rho_f,
-  gb_vs_rest           = gb_vs_rest,
-  gb_yearly            = gb_yearly
+  persistence_summary     = persistence_summary,
+  power_analysis          = power_analysis,
+  coef_comparison         = coef_comparison,
+  corr_mat                = corr_mat,
+  source_check            = source_check,
+  check_f_comparison      = check_f_comparison,
+  rho_m5                  = rho_m5,
+  rho_no_immig            = rho_f,
+  gb_vs_rest              = gb_vs_rest,
+  gb_yearly               = gb_yearly,
+  bg2019_sensitivity      = bg_sensitivity,
+  rho_no_bg2019           = rho_no_bg,
+  check_i_cross_section   = check_i_table,
+  check_i_verdict         = verdict_i,
+  check_j_immig_interact  = check_j_table,
+  check_j_verdict         = verdict_j,
+  check_j_sar             = if (exists("m_j_sar")) m_j_sar else NULL
 )
 
 saveRDS(revision_checks,
@@ -501,7 +971,31 @@ summary_rows <- list(
   data.frame(check   = "G: GB structural outlier",
              finding = paste0("GB threat ", threat_pct_below,
                               "% below mean; defence ", defence_pct_above,
-                              "% above mean — structural exclusion confirmed"))
+                              "% above mean — structural exclusion confirmed")),
+  data.frame(check   = "H: BG 2019 sensitivity",
+             finding = paste0("Verdict: ", verdict,
+                              " | M5 threat coef full=",
+                              round(get_cf(spatial$m5_sar, "threat_land_log", "sar")[1], 4),
+                              " no-BG19=",
+                              round(get_cf(m5_no_bg2019, "threat_land_log", "sar")[1], 4))),
+  data.frame(check   = "I: Cross-section 2022/2023",
+             finding = paste0(
+               verdict_i,
+               " | 2022: beta=",
+               if (!is.null(cs_2022)) round(cs_2022$threat_coef, 4) else NA,
+               " p=",
+               if (!is.null(cs_2022)) round(cs_2022$threat_p, 4) else NA,
+               " R2=",
+               if (!is.null(cs_2022)) round(cs_2022$r_squared, 3) else NA,
+               "; 2023: beta=",
+               if (!is.null(cs_2023)) round(cs_2023$threat_coef, 4) else NA,
+               " p=",
+               if (!is.null(cs_2023)) round(cs_2023$threat_p, 4) else NA,
+               " R2=",
+               if (!is.null(cs_2023)) round(cs_2023$r_squared, 3) else NA
+             )),
+  data.frame(check   = "J: Immigration post2022 interaction",
+             finding = verdict_j)
 )
 
 revision_summary <- dplyr::bind_rows(summary_rows)
