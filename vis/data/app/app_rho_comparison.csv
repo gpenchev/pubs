@@ -1,0 +1,12 @@
+model,rho,rho_se,rho_p,n_obs,note
+M5: SAR,0.1771,0.0385,0,517,Primary specification
+M6: SEM,0.1801,0.0406,0,517,Spatial error model
+M7: SAR + Regime,0.1526,0.0389,1e-4,517,With regime x threat interactions
+M8: SAR Robust threat,0.1641,0.0386,0,517,All-events threat measure
+M9: SAR inv.dist,0.3459,0.0696,0,529,Inverse-distance W matrix
+M10a: SAR no Finland,0.2211,0.0423,0,465,Excluding Finland
+M10b: SAR post-2014,0.0823,0.0634,0.1943,220,Post-2014 subsample
+M10c: SAR pre-2014,0.0192,0.0491,0.6958,297,Pre-2014 subsample
+M12: SAR lagged DV,0.0609,0.0344,0.0767,495,After controlling for spending persistence
+M13: GPR SAR,-0.2099,0.0458,0,377,GPR proxy (13-country subsample)
+FD SAR (first-difference),-0.0911,0.0424,0.0317,NA,After first-differencing (removes persistence)

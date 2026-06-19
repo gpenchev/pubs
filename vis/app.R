@@ -1,7 +1,9 @@
 library(shiny)
 library(here)
 
-source(here::here("vis", "global.R"))
+# When deployed on Shiny Server, here() resolves to the vis/ directory itself.
+# Use a plain relative path so it works both locally (cwd = vis/) and deployed.
+source("global.R")
 
 # =============================================================================
 # Helper: build a standard 4-sub-tab layout (Figures / Tables / Maps / Results)

@@ -57,7 +57,7 @@ The table below shows every script in the order `run_pipeline.R` sources it, the
 | 25 | `regression/09_revision_checks.R` | Revision checks | `revision_checks_results.rds` |
 | 26 | `regression/10_gpr_comparison.R` | GPR comparison + M13 | `gpr_comparison_results.rds` |
 | 27 | `regression/06_publication_table.R` | Publication table | `regression_table.html/.tex` |
-| 28 | `regression/11_app_data.R` | App data (Shiny) | 23 CSVs in `output/app/` |
+| 28 | `regression/11_app_data.R` | App data (Shiny) | 23 CSVs → `output/app/`; copies to `vis/data/` |
 
 > **Note on numbering:** Script filenames use their original sequence numbers (01–11 within each subdirectory). Execution order differs from filename order in two cases: `06_publication_table.R` runs as step 27 (after all diagnostics and robustness checks are complete); `12_unit_root_check.R` runs as step 17 (after ParlGov merge, so all variables including political ones are present).
 
@@ -379,9 +379,9 @@ Output: `scripts/output/data/gpr_comparison_results.rds`, `scripts/output/data/g
 
 ### regression/11_app_data.R
 
-Prepares all Shiny app data from pipeline outputs. Reads from `scripts/output/data/` and `scripts/output/quality_reports/`; writes **23 flat CSV files** to `scripts/output/app/`. The app folder is fully autonomous — the Shiny app reads only CSVs and `*.md` files; no R model objects or pipeline packages are required at app runtime.
+Prepares all Shiny app data from pipeline outputs. Reads from `scripts/output/data/` and `scripts/output/quality_reports/`; writes **23 flat CSV files** to `scripts/output/app/`; then copies all assets into `vis/data/` for self-contained Shiny Server deployment. No R model objects or pipeline packages are required at app runtime.
 
-Seven blocks:
+Eight blocks:
 
 | Block | Content | Key output files |
 |-------|---------|-----------------|
@@ -392,5 +392,16 @@ Seven blocks:
 | 5 | Robustness check tables (Checks A–J) | `app_checks_summary.csv`, `app_check_h.csv`, `app_check_i.csv`, `app_check_j.csv` |
 | 6 | Specific issues (kinetic bias, Greece, GPR coverage) | `app_issue2_greece.csv`, `app_issue3_coverage.csv`, `app_issue4_gpr_coverage.csv` |
 | 7 | Markdown path lookup for dynamic content tabs | `app_md_paths.csv` |
+| 8 | **Copy assets to `vis/data/`** (self-contained deployment) | 8a: 23 CSVs → `vis/data/app/`; 8b: 11 MD files (flat names) → `vis/data/md/`; 8c: `unitroot_results.rds` → `vis/data/rds/` |
 
-Output: 23 CSV files in `scripts/output/app/`
+**`vis/data/` deployment store** — populated by Block 8 and read by the Shiny app on the server:
+
+| Directory | Contents | Naming convention |
+|-----------|----------|-------------------|
+| `vis/data/app/` | 23 flat CSV files | Original filenames (`app_*.csv`) |
+| `vis/data/md/` | 11 markdown files (flattened) | Path separator `/` replaced with `__`, e.g. `models/results/m1_m12.md` → `models__results__m1_m12.md` |
+| `vis/data/rds/` | `unitroot_results.rds` | Original filename |
+
+On Shiny Server `here::here()` resolves to `vis/` (no `.Rproj`), not the project root. All external data paths must therefore be relative to `vis/`. Running `11_app_data.R` as the final pipeline step ensures `vis/data/` is fully populated before deployment.
+
+Output: 23 CSV files in `scripts/output/app/`; copies in `vis/data/app/`, `vis/data/md/`, `vis/data/rds/`

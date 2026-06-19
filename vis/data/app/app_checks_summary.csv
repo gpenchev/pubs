@@ -1,0 +1,10 @@
+check,finding
+A: Persistence,"rho levels=0.177, lagged=0.061, FD=-0.091"
+B: Regime4 power,"N=44, power=27.9%, N_required=184 (assumes SE~1/sqrt(N); spatial corr may increase this)"
+C: Orthogonalisation,Max pct change in fiscal coefs: 42%
+D: Threat correlation,"cor(threat_land, threat_score)=0.506"
+F: No immigration SAR,"rho M5=0.177, rho no-immig=0.324; threat coef M5=0.088, no-immig=0.105"
+G: GB structural outlier,GB threat 39.3% below mean; defence 46.5% above mean — structural exclusion confirmed
+H: BG 2019 sensitivity,Verdict: STABLE — BG 2019 does not drive results. No caveat needed. | M5 threat coef full=0.0884 no-BG19=0.0917
+I: Cross-section 2022/2023,"CONFIRMED — threat significant in both 2022 and 2023 cross-sections. Year FE absorption is an identification artefact, not a real-world non-response. | 2022: beta=0.3813 p=0.001 R2=0.559; 2023: beta=0.2823 p=0.0254 R2=0.383"
+J: Immigration post2022 interaction,NO DISTINCT MECHANISM — interaction p=0.058. Immigration effect is a pooled average across all years. Address reviewer concern via discussion framing only.

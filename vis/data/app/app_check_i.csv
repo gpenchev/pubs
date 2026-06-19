@@ -1,0 +1,3 @@
+year,n_obs,threat_coef,threat_se,threat_p,debt_coef,debt_p,r_squared,threat_sig
+2022,22,0.3813,0.0966,0.001,0.0122,0.0018,0.559,TRUE
+2023,22,0.2823,0.1152,0.0254,0.0043,0.3012,0.383,TRUE

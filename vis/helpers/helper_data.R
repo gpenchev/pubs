@@ -86,30 +86,40 @@ filter_panel <- function(data, countries = NULL, years = NULL, variable = NULL) 
 }
 
 # =============================================================================
-# App data loader — reads from scripts/output/app/ (autonomous CSV store)
+# App data loader — reads from vis/data/ (self-contained deployment store)
+# =============================================================================
+# All data the app needs is copied into vis/data/ by 11_app_data.R Block 8.
+# This makes the vis/ directory fully self-contained for Shiny Server.
+#
+# vis/data/app/  — 23 flat CSVs
+# vis/data/md/   — all markdown files (flat, path encoded as __ separator)
+# vis/data/rds/  — unitroot_results.rds
+#
+# Fallback to scripts/output/ paths for local interactive use when vis/data/
+# has not yet been populated (e.g. mid-pipeline development).
 # =============================================================================
 
-#' Resolve the app data directory
+#' Resolve the app CSV data directory
 #'
-#' Tries here::here() first, then relative paths for shinyapps.io deployment.
-#' @return Character path to scripts/output/app/
+#' Primary: vis/data/app/ (self-contained, works on Shiny Server)
+#' Fallback: scripts/output/app/ (local interactive use)
+#' @return Character path to the CSV directory
 resolve_app_path <- function() {
   candidates <- c(
-    tryCatch(here::here("scripts", "output", "app"),
-             error = function(e) ""),
-    file.path("scripts", "output", "app"),
-    file.path("..", "scripts", "output", "app")
+    file.path("data", "app"),                          # deployed: cwd = vis/
+    file.path("..", "scripts", "output", "app"),        # deployed fallback
+    file.path("scripts", "output", "app"),              # interactive: cwd = root
+    tryCatch(here::here("scripts", "output", "app"), error = function(e) "")
   )
   for (p in candidates) {
-    if (nchar(p) > 0 && dir.exists(p)) return(p)
+    if (nchar(p) > 0 && dir.exists(p) &&
+        length(list.files(p, pattern = "\\.csv$")) > 0)
+      return(normalizePath(p))
   }
-  stop("Cannot locate scripts/output/app/ directory.")
+  stop("Cannot locate app CSV directory (vis/data/app/ or scripts/output/app/).")
 }
 
 #' Load all app-ready CSV files into a named list
-#'
-#' Each element is a data frame corresponding to one CSV in scripts/output/app/.
-#' The element name is the filename without .csv.
 #'
 #' @param path_app Optional path override. If NULL, resolved automatically.
 #' @return Named list of data frames.
@@ -132,40 +142,83 @@ load_app_data <- function(path_app = NULL) {
   out
 }
 
-#' Resolve the project root for .md file reading
+#' Resolve the vis/data/md/ directory for markdown files
 #'
-#' @return Character path to project root (one level above vis/)
-resolve_root_path <- function() {
+#' Primary: vis/data/md/ (self-contained deployment)
+#' Fallback: project root (local interactive use when vis/data/md/ is empty)
+#' @return Character path to the md directory
+resolve_md_path <- function() {
   candidates <- c(
-    tryCatch(here::here(), error = function(e) ""),
-    file.path(".."),
-    file.path(getwd(), "..")
+    file.path("data", "md"),          # deployed: cwd = vis/
+    file.path("..", "vis", "data", "md")  # interactive: cwd = project root
   )
   for (p in candidates) {
-    if (nchar(p) > 0 &&
-        file.exists(file.path(p, "models", "results", "m1_m12.md"))) {
+    if (nchar(p) > 0 && dir.exists(p) &&
+        length(list.files(p, pattern = "\\.md$")) > 0)
       return(normalizePath(p))
-    }
   }
-  # fallback: assume getwd() is vis/
+  NULL  # signals fallback to proj_root-based reading
+}
+
+#' Resolve the project root (kept for local interactive fallback)
+#'
+#' @return Character path to project root
+resolve_root_path <- function() {
+  # vis/data/md/ is the primary source; this is only used as fallback
+  candidates <- c(
+    file.path(".."),
+    file.path(getwd(), ".."),
+    tryCatch(here::here(), error = function(e) "")
+  )
+  for (p in candidates) {
+    if (nchar(p) > 0 && dir.exists(file.path(p, "scripts")))
+      return(normalizePath(p))
+  }
   normalizePath(file.path(getwd(), ".."))
 }
 
 #' Read a section from a markdown file
 #'
+#' Resolves the file in this order:
+#'   1. vis/data/md/<flat_name>  — flat name with "__" path separator
+#'      (self-contained deployment; populated by 11_app_data.R Block 8)
+#'   2. file.path(root, md_file) — local interactive fallback using proj_root
+#'
+#' The flat name is derived from md_file by replacing "/" with "__", e.g.:
+#'   "models/results/m1_m12.md" → "models__results__m1_m12.md"
+#'
 #' If heading is "full", returns the entire file content.
 #' Otherwise extracts the section starting at the matching heading
 #' up to (but not including) the next same-level heading.
 #'
-#' @param root      Project root path (from resolve_root_path()).
+#' @param root      Project root path (from resolve_root_path()). Used as
+#'                  fallback only; may be NULL if vis/data/md/ is populated.
 #' @param md_file   Relative path from root, e.g. "models/results/m1_m12.md".
 #' @param heading   Either "full" or a heading prefix like "## 9.".
 #' @return Character string of markdown content, or an error message.
 read_md_section <- function(root, md_file, heading = "full") {
-  path <- file.path(root, md_file)
-  if (!file.exists(path)) {
+  # --- Resolve file path ------------------------------------------------------
+  # Primary: vis/data/md/ flat file (deployment-safe)
+  flat_name <- gsub("/", "__", md_file, fixed = TRUE)
+  md_dir    <- resolve_md_path()
+  path      <- NULL
+
+  if (!is.null(md_dir)) {
+    candidate <- file.path(md_dir, flat_name)
+    if (file.exists(candidate)) path <- candidate
+  }
+
+  # Fallback: proj_root + relative path (local interactive)
+  if (is.null(path) && !is.null(root) && nchar(root) > 0) {
+    candidate <- file.path(root, md_file)
+    if (file.exists(candidate)) path <- candidate
+  }
+
+  if (is.null(path)) {
     return(paste0("*File not found: `", md_file, "`*"))
   }
+
+  # --- Extract section --------------------------------------------------------
   lines <- readLines(path, warn = FALSE)
   if (heading == "full") return(paste(lines, collapse = "\n"))
 

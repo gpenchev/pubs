@@ -53,10 +53,44 @@ required_packages <- c(
   "modelsummary"
 )
 
-for (pkg in required_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg)
+# Find packages missing from ALL library paths (system + user)
+missing_pkgs <- required_packages[
+  !sapply(required_packages, function(pkg)
+    any(sapply(.libPaths(), function(lp) dir.exists(file.path(lp, pkg))))
+  )
+]
+
+if (length(missing_pkgs) > 0) {
+  msg <- paste0(
+    "\n", strrep("=", 60), "\n",
+    "The following packages are not installed:\n\n  ",
+    paste(missing_pkgs, collapse = "\n  "),
+    "\n\n",
+    "To install as the CURRENT USER (no root needed):\n\n  ",
+    'install.packages(c("', paste(missing_pkgs, collapse = '", "'), '"))',
+    "\n\n",
+    "To install SYSTEM-WIDE (requires root / sudo Rscript):\n\n  ",
+    'sudo Rscript -e \'install.packages(c("',
+    paste(missing_pkgs, collapse = '", "'), '"))\'',
+    "\n", strrep("=", 60)
+  )
+
+  if (interactive()) {
+    message(msg)
+    answer <- readline("Install missing packages for current user now? [y/N]: ")
+    if (tolower(trimws(answer)) == "y") {
+      install.packages(missing_pkgs)
+    } else {
+      stop("Aborted. Install the packages listed above and re-run.", call. = FALSE)
+    }
+  } else {
+    # Non-interactive (Rscript, Shiny Server): print instructions and stop
+    stop(msg, "\nRun interactively to be prompted, or install manually.",
+         call. = FALSE)
   }
+}
+
+for (pkg in required_packages) {
   library(pkg, character.only = TRUE)
 }
 

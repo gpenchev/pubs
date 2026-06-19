@@ -13,23 +13,26 @@ library(readr)
 library(here)
 
 # --- Helpers ------------------------------------------------------------------
-source(here::here("vis", "helpers", "helper_data.R"))
-source(here::here("vis", "helpers", "helper_plot_theme.R"))
-source(here::here("vis", "helpers", "helper_regime.R"))
-source(here::here("vis", "helpers", "helper_outliers.R"))
-source(here::here("vis", "helpers", "helper_map.R"))
+# Use file.path() relative to the vis/ directory — works both locally
+# (when vis/ is the working directory) and on Shiny Server (where here()
+# resolves to vis/ and would produce vis/vis/... double-prefix paths).
+source(file.path("helpers", "helper_data.R"))
+source(file.path("helpers", "helper_plot_theme.R"))
+source(file.path("helpers", "helper_regime.R"))
+source(file.path("helpers", "helper_outliers.R"))
+source(file.path("helpers", "helper_map.R"))
 
 # --- Modules ------------------------------------------------------------------
-source(here::here("vis", "modules", "mod_timeseries.R"))
-source(here::here("vis", "modules", "mod_scatter.R"))
-source(here::here("vis", "modules", "mod_outliers.R"))
-source(here::here("vis", "modules", "mod_map.R"))
-source(here::here("vis", "modules", "mod_unitroot.R"))
-source(here::here("vis", "modules", "mod_about.R"))
-source(here::here("vis", "modules", "mod_results.R"))
-source(here::here("vis", "modules", "mod_coefficients.R"))
-source(here::here("vis", "modules", "mod_regime.R"))
-source(here::here("vis", "modules", "mod_issues.R"))
+source(file.path("modules", "mod_timeseries.R"))
+source(file.path("modules", "mod_scatter.R"))
+source(file.path("modules", "mod_outliers.R"))
+source(file.path("modules", "mod_map.R"))
+source(file.path("modules", "mod_unitroot.R"))
+source(file.path("modules", "mod_about.R"))
+source(file.path("modules", "mod_results.R"))
+source(file.path("modules", "mod_coefficients.R"))
+source(file.path("modules", "mod_regime.R"))
+source(file.path("modules", "mod_issues.R"))
 
 # --- Load all app data from scripts/output/app/ -------------------------------
 # The app is autonomous: reads only flat CSVs, no RDS model objects needed.
@@ -70,14 +73,20 @@ if (!is.null(panel_data)) {
   }
 }
 
-# Unit root results — still loaded from original output for the unitroot module
-unitroot_results <- tryCatch(
-  readRDS(here::here("scripts", "output", "data", "unitroot_results.rds")),
-  error = function(e) NULL
-)
-
-# Project root for .md reading
+# Project root — kept for local interactive fallback (MD reading).
+# On Shiny Server vis/data/md/ is used instead; proj_root is not critical.
 proj_root <- resolve_root_path()
+
+# Unit root results — primary: vis/data/rds/ (self-contained deployment)
+#                     fallback: scripts/output/data/ (local interactive)
+unitroot_results <- tryCatch({
+  rds_candidates <- c(
+    file.path("data", "rds", "unitroot_results.rds"),           # deployed: cwd = vis/
+    file.path(proj_root, "scripts", "output", "data", "unitroot_results.rds")  # local
+  )
+  rds_path <- Filter(file.exists, rds_candidates)[1]
+  if (!is.na(rds_path) && nchar(rds_path) > 0) readRDS(rds_path) else NULL
+}, error = function(e) NULL)
 
 # Convenience: conflict events (pre-filtered, 787 rows)
 conflict_events <- app_data[["app_conflict_events"]]

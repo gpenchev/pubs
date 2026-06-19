@@ -622,6 +622,84 @@ app_md_paths <- tibble::tribble(
 write_app(app_md_paths, "app_md_paths.csv")
 
 # =============================================================================
+# BLOCK 8: Copy all app assets into vis/data/ for self-contained deployment
+#
+# vis/data/ is the single source of truth read by the Shiny app on the server.
+# Three subdirectories:
+#   vis/data/app/  — 23 flat CSVs (copy of scripts/output/app/)
+#   vis/data/md/   — all markdown files the app displays (flat, no subdirs)
+#   vis/data/rds/  — unitroot_results.rds
+#
+# Flat md/ layout: original subdirectory path encoded into filename with "__"
+#   models/results/m1_m12.md         → vis/data/md/models__results__m1_m12.md
+#   methodology/models/brief.md      → vis/data/md/methodology__models__brief.md
+# =============================================================================
+
+path_vis_data <- file.path(path_root, "vis", "data")
+path_vis_app  <- file.path(path_vis_data, "app")
+path_vis_md   <- file.path(path_vis_data, "md")
+path_vis_rds  <- file.path(path_vis_data, "rds")
+
+dir.create(path_vis_app, showWarnings = FALSE, recursive = TRUE)
+dir.create(path_vis_md,  showWarnings = FALSE, recursive = TRUE)
+dir.create(path_vis_rds, showWarnings = FALSE, recursive = TRUE)
+
+# --- 8a. Copy CSVs -----------------------------------------------------------
+csv_files <- list.files(path_app, pattern = "\\.csv$", full.names = TRUE)
+invisible(lapply(csv_files, function(f) {
+  file.copy(f, file.path(path_vis_app, basename(f)), overwrite = TRUE)
+}))
+message("Block 8a: copied ", length(csv_files), " CSVs to vis/data/app/")
+
+# --- 8b. Copy and flatten markdown files ------------------------------------
+md_sources <- c(
+  # models/results/
+  file.path(path_root, "models",       "results", "threat_index.md"),
+  file.path(path_root, "models",       "results", "m1_m12.md"),
+  file.path(path_root, "models",       "results", "diagnostics_breaks.md"),
+  file.path(path_root, "models",       "results", "revision_checks_ij.md"),
+  file.path(path_root, "models",       "results", "gpr_results.md"),
+  # methodology/models/
+  file.path(path_root, "methodology",  "models",  "brief.md"),
+  file.path(path_root, "methodology",  "models",  "threat.md"),
+  file.path(path_root, "methodology",  "models",  "variables.md"),
+  file.path(path_root, "methodology",  "models",  "models.md"),
+  file.path(path_root, "methodology",  "models",  "naive.md"),
+  file.path(path_root, "methodology",  "models",  "weak.md")
+)
+
+# Encode path as flat filename: sub-dirs joined with __ separator
+encode_md_name <- function(full_path, root) {
+  rel <- sub(paste0("^", normalizePath(root), .Platform$file.sep), "",
+             normalizePath(full_path))
+  paste0(gsub(.Platform$file.sep, "__", rel, fixed = TRUE))
+}
+
+md_copied <- 0
+md_missing <- character(0)
+for (src in md_sources) {
+  if (file.exists(src)) {
+    dest_name <- encode_md_name(src, path_root)
+    file.copy(src, file.path(path_vis_md, dest_name), overwrite = TRUE)
+    md_copied <- md_copied + 1
+  } else {
+    md_missing <- c(md_missing, basename(src))
+  }
+}
+message("Block 8b: copied ", md_copied, " md files to vis/data/md/")
+if (length(md_missing) > 0)
+  message("  WARNING: missing: ", paste(md_missing, collapse = ", "))
+
+# --- 8c. Copy unitroot RDS ---------------------------------------------------
+ur_src <- file.path(path_root, "scripts", "output", "data", "unitroot_results.rds")
+if (file.exists(ur_src)) {
+  file.copy(ur_src, file.path(path_vis_rds, "unitroot_results.rds"), overwrite = TRUE)
+  message("Block 8c: copied unitroot_results.rds to vis/data/rds/")
+} else {
+  message("Block 8c: WARNING — unitroot_results.rds not found, skipping")
+}
+
+# =============================================================================
 # FINAL REPORT
 # =============================================================================
 message("\n", strrep("=", 60))

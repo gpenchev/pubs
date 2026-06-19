@@ -1,0 +1,8 @@
+variable,coef,se,z_stat,p_value,significant
+threat_land_log,0.08161,0.02294,3.558,4e-4,TRUE
+immigration_rate,0.01684,0.00418,4.024,1e-4,TRUE
+immig_post2022,-0.01096,0.00578,-1.895,0.0581,FALSE
+debt_gdp,3.2e-4,9.6e-4,0.336,0.7365,FALSE
+deficit_gdp,-0.02345,0.00463,-5.07,0,TRUE
+gov_left_right,0.00802,0.00674,1.191,0.2336,FALSE
+gov_eu_position,-0.01793,0.00865,-2.074,0.0381,TRUE
