@@ -36,7 +36,7 @@ mod_timeseries_ui <- function(id) {
         checkboxInput(ns("show_source"), "Source overlay", value = FALSE)
       )
     ),
-    plotly::plotlyOutput(ns("plot"), height = "500px")
+    plotly::plotlyOutput(ns("plot"), height = PLOT_HEIGHT_STANDARD)
   )
 }
 
@@ -80,8 +80,8 @@ mod_timeseries_server <- function(id, panel_data) {
             "Country: ", country_name, "<br>",
             "Year: ", year, "<br>",
             lab, ": ", round(.data[[var]], 3), "<br>",
-            "Regime: ", regime, "<br>",
-            "Source: ", defence_source
+            "Regime: ", regime,
+            if (var == "defence_gdp") paste0("<br>Source: ", defence_source) else ""
           )
         )
 
@@ -110,10 +110,11 @@ mod_timeseries_server <- function(id, panel_data) {
         gg <- gg + ggplot2::scale_colour_manual(values = palette_source)
       }
 
-      plotly::ggplotly(gg, tooltip = "text") %>%
-        plotly::layout(
-          legend = list(orientation = "v", x = 1.02, y = 0.5)
-        )
+      configure_plotly(
+        plotly::ggplotly(gg, tooltip = "text") %>%
+          plotly::layout(legend = list(orientation = "v", x = 1.02, y = 0.5)),
+        fname = "threat_timeseries"
+      )
     })
   })
 }

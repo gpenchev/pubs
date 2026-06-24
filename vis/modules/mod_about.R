@@ -1,8 +1,8 @@
 mod_about_ui <- function(id) {
   ns <- NS(id)
-  fluidPage(
+  tagList(
     fluidRow(
-      column(8, offset = 2,
+      column(10, offset = 1,
 
         br(),
 
@@ -45,6 +45,41 @@ mod_about_ui <- function(id) {
 
         br(),
 
+        # --- Key findings value boxes -----------------------------------------
+        bslib::layout_columns(
+          col_widths = c(3, 3, 3, 3),
+          bslib::value_box(
+            title    = "Spatial lag \u03c1 (M5 SAR)",
+            value    = "+0.177",
+            showcase = bsicons::bs_icon("diagram-3"),
+            theme    = "primary",
+            p("p < 0.001 \u2014 long-run strategic complementarity")
+          ),
+          bslib::value_box(
+            title    = "Threat coefficient \u03b2 (M5 SAR)",
+            value    = "+0.088",
+            showcase = bsicons::bs_icon("bullseye"),
+            theme    = "success",
+            p("p < 0.001 \u2014 significant threat responsiveness")
+          ),
+          bslib::value_box(
+            title    = "\u0394AIC vs GPR (M5 vs M13)",
+            value    = "17.6",
+            showcase = bsicons::bs_icon("bar-chart-line"),
+            theme    = "info",
+            p("UCDP outperforms text-based GPR measure")
+          ),
+          bslib::value_box(
+            title    = "Sample",
+            value    = "22 countries",
+            showcase = bsicons::bs_icon("people"),
+            theme    = "warning",
+            p("529 obs \u00b7 1995\u20132023 \u00b7 NATO-EU")
+          )
+        ),
+
+        br(),
+
         # --- How to use -------------------------------------------------------
         bslib::card(
           bslib::card_header(tags$h5(bsicons::bs_icon("map"), " How to use this app")),
@@ -62,7 +97,7 @@ mod_about_ui <- function(id) {
                 tags$h6(bsicons::bs_icon("easel"), " Presentation use"),
                 tags$ul(
                   tags$li("Navigate to a tab before the session and leave it open"),
-                  tags$li("Use", tags$b("Specific Issues"), "for pre-prepared answers to reviewer questions"),
+                  tags$li("Use the", tags$b("Issues"), "tab for pre-prepared answers to reviewer questions"),
                   tags$li("Every chart is interactive — zoom, hover, filter on demand")
                 )
               )
@@ -90,19 +125,19 @@ mod_about_ui <- function(id) {
                   tags$td("Maps — see where conflict events fall")
                 ),
                 tags$tr(
-                  tags$td(tags$b("Panel Estimation")),
-                  tags$td("Regression models M1–M13: coefficients, regime effects, spatial lag"),
+                  tags$td(tags$b("Estimation")),
+                  tags$td("Regression models M1–M13: coefficients, regime effects, spatial lag, AIC comparison"),
                   tags$td("Figures — coefficient forest plot")
                 ),
                 tags$tr(
-                  tags$td(tags$b("Robustness Checks")),
+                  tags$td(tags$b("Robustness")),
                   tags$td("All sensitivity checks A–J: BG 2019, immigration, cross-section 2022"),
                   tags$td("Tables — full checks summary")
                 ),
                 tags$tr(
-                  tags$td(tags$b("Specific Issues")),
+                  tags$td(tags$b("Issues")),
                   tags$td("Pre-written answers to the four named reviewer weaknesses"),
-                  tags$td("Results — select the issue from the dropdown")
+                  tags$td("Figure panel opens automatically — select issue from sidebar")
                 )
               )
             )
@@ -136,7 +171,7 @@ mod_about_ui <- function(id) {
             ),
             tags$hr(style = "margin: 0.75em 0;"),
             tags$p(
-              style = "color: #666; font-size: 0.9em;",
+              style = "color: #666; font-size: 0.95em;",
               "Research design, data, and all analytical decisions by the author. ",
               "Scripts and interactive application developed with the assistance of ",
               tags$strong("Claude Sonnet 4.5"),

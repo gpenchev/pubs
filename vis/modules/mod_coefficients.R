@@ -38,10 +38,17 @@ mod_coefficients_ui <- function(id) {
         checkboxInput(ns("show_ci"), "Show 95% CI", value = TRUE)
       )
     ),
-    plotly::plotlyOutput(ns("forest_plot"), height = "520px"),
-    hr(),
-    DT::dataTableOutput(ns("coef_table")),
-    downloadButton(ns("dl_coef"), "Download CSV")
+    plotly::plotlyOutput(ns("forest_plot"), height = PLOT_HEIGHT_STANDARD),
+    br(),
+    bslib::card(
+      bslib::card_header(
+        class = "d-flex justify-content-between align-items-center",
+        tags$span(bsicons::bs_icon("table"), " Filtered coefficients"),
+        downloadButton(ns("dl_coef"), "CSV",
+                       class = "btn btn-sm btn-outline-secondary")
+      ),
+      bslib::card_body(DT::dataTableOutput(ns("coef_table")))
+    )
   )
 }
 
@@ -126,10 +133,11 @@ mod_coefficients_server <- function(id, coef_data) {
           )
       }
 
-      plotly::ggplotly(p, tooltip = "text") %>%
-        plotly::layout(
-          legend = list(orientation = "h", y = -0.15)
-        )
+      configure_plotly(
+        plotly::ggplotly(p, tooltip = "text") %>%
+          plotly::layout(legend = list(orientation = "h", y = -0.12)),
+        fname = "coefficients_forest"
+      )
     })
 
     output$coef_table <- DT::renderDataTable({
@@ -140,16 +148,16 @@ mod_coefficients_server <- function(id, coef_data) {
           std_error = round(std_error, 4),
           p_value   = round(p_value,   4)
         )
-      DT::datatable(
-        df,
-        rownames  = FALSE,
-        options   = list(pageLength = 15, dom = "tip"),
-        class     = "table-sm table-hover"
-      ) %>%
+      rename_dt_cols(df) %>%
+        DT::datatable(
+          rownames  = FALSE,
+          options   = list(pageLength = 15, dom = "tip"),
+          class     = "table-sm table-hover"
+        ) %>%
         DT::formatStyle(
-          "significant",
+          "Sig.",
           target          = "row",
-          backgroundColor = DT::styleEqual(TRUE, "#e8f4f8")
+          backgroundColor = DT::styleEqual(TRUE, "#d1ecf1")
         )
     })
 

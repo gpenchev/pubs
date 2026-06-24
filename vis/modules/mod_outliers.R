@@ -25,7 +25,7 @@ mod_outliers_ui <- function(id) {
                      value = 3, min = 1, max = 10, step = 0.5)
       )
     ),
-    plotly::plotlyOutput(ns("plot"), height = "420px"),
+    plotly::plotlyOutput(ns("plot"), height = PLOT_HEIGHT_COMPACT),
     hr(),
     DT::dataTableOutput(ns("table"))
   )
@@ -84,11 +84,12 @@ mod_outliers_server <- function(id, panel_data) {
       # Source label mapping: only defence_gdp, fiscal, and GDP variables
       # have a meaningful source column. Threat score variables and political
       # variables do not have a source column and will show "unknown".
+      # Only defence_gdp carries a meaningful source column in app_threat_panel.
+      # fiscal_source and gdp_source are not in the app data; branch retained as
+      # a no-op for future extension. gdp_pc removed (not in variable selector).
       source_col <- dplyr::case_when(
-        var == "defence_gdp"                  ~ "defence_source",
-        var %in% c("debt_gdp", "deficit_gdp") ~ "fiscal_source",
-        var %in% c("gdp_pc", "gdp_growth")    ~ "gdp_source",
-        TRUE                                   ~ NA_character_
+        var == "defence_gdp" ~ "defence_source",
+        TRUE                 ~ NA_character_
       )
 
       has_source <- !is.na(source_col) && source_col %in% names(df)
@@ -128,18 +129,22 @@ mod_outliers_server <- function(id, panel_data) {
 
       gg <- add_regime_shading(gg)
 
-      plotly::ggplotly(gg, tooltip = "text") %>%
-        plotly::layout(
-          legend = list(orientation = "h", x = 0, y = -0.15)
-        )
+      configure_plotly(
+        plotly::ggplotly(gg, tooltip = "text") %>%
+          plotly::layout(legend = list(orientation = "h", y = -0.12)),
+        fname = "outlier_plot"
+      )
     })
 
     output$table <- DT::renderDataTable({
-      flagged() %>%
-        dplyr::arrange(dplyr::desc(.data[[input$variable]])) %>%
+      rename_dt_cols(
+        flagged() %>%
+          dplyr::arrange(dplyr::desc(.data[[input$variable]]))
+      ) %>%
         DT::datatable(
-          options  = list(pageLength = 15, scrollX = TRUE),
-          rownames = FALSE
+          options  = list(pageLength = 15, scrollX = TRUE, dom = "tip"),
+          rownames = FALSE,
+          class    = "table-sm table-hover"
         )
     })
   })

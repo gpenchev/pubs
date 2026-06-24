@@ -20,7 +20,8 @@ load_panel <- function(path_data = NULL) {
 #' Get labelled variable choices for Shiny selectInput widgets
 #'
 #' Returns a named character vector where names are human-readable labels
-#' and values are column names in the panel dataset.
+#' and values are column names in the panel dataset (app_threat_panel).
+#' gdp_pc is intentionally excluded: it is not in app_threat_panel.
 #'
 #' @return Named character vector of variable labels to column names.
 get_variable_labels <- function() {
@@ -28,7 +29,6 @@ get_variable_labels <- function() {
     "Defence Spending (% GDP)"       = "defence_gdp",
     "Government Debt (% GDP)"        = "debt_gdp",
     "Fiscal Deficit (% GDP)"         = "deficit_gdp",
-    "GDP per Capita (EUR)"           = "gdp_pc",
     "GDP Growth Rate (%)"            = "gdp_growth",
     "Immigration Rate (per 1000)"    = "immigration_rate",
     "Threat Score (log)"             = "threat_score_log",
@@ -39,16 +39,137 @@ get_variable_labels <- function() {
   )
 }
 
+#' Get extended variable labels including derived map variables
+#'
+#' Adds country_fe and max_cooks_d to the standard list for specialised maps.
+#'
+#' @return Named character vector including FE and Cook's D.
+get_map_variable_labels <- function() {
+  c(
+    get_variable_labels(),
+    "Country Fixed Effect (M5 SAR)" = "country_fe",
+    "Cook's D — max influence"      = "max_cooks_d"
+  )
+}
+
+#' Rename snake_case column names to human-readable labels for DT display
+#'
+#' Applies a best-effort renaming of common technical column names.
+#' Unrecognised names are left unchanged.
+#'
+#' @param df A data frame.
+#' @return The data frame with renamed columns.
+rename_dt_cols <- function(df) {
+  col_map <- c(
+    model             = "Model",
+    term              = "Variable",
+    estimate          = "Estimate",
+    std_error         = "SE",
+    p_value           = "p-value",
+    significant       = "Sig.",
+    rho               = "\u03c1 (rho)",
+    rho_se            = "SE(\u03c1)",
+    rho_p             = "p(\u03c1)",
+    n_obs             = "N obs",
+    note              = "Note",
+    country           = "Country",
+    country_name      = "Country",
+    fe_value          = "Fixed Effect",
+    se                = "SE",
+    z                 = "z",
+    n_flagged         = "N flagged",
+    max_cooks_d       = "Max Cook's D",
+    mean_cooks_d      = "Mean Cook's D",
+    comparison        = "Comparison",
+    coef_full         = "Coef (full)",
+    coef_no_bg19      = "Coef (no BG-2019)",
+    se_full           = "SE (full)",
+    abs_change        = "Abs. change",
+    pct_change        = "% change",
+    within_1se        = "Within 1 SE",
+    sign_preserved    = "Sign stable",
+    sig_preserved     = "Sig. stable",
+    stable            = "Stable",
+    check             = "Check",
+    finding           = "Finding",
+    year              = "Year",
+    regime            = "Regime",
+    label             = "Label",
+    base_coef         = "Base coef",
+    interaction_coef  = "Interaction",
+    net_coef          = "Net effect",
+    se_net            = "SE (net)",
+    p_interaction     = "p (interaction)",
+    n_years           = "N years",
+    mean_threat       = "Mean threat",
+    sd_threat         = "SD threat",
+    min_threat        = "Min threat",
+    max_threat        = "Max threat",
+    n_zero            = "N zero",
+    pct_zero          = "% zero",
+    mean_score        = "Mean score",
+    sd_score          = "SD score",
+    divergence_mean   = "UCDP\u2013GPR divergence",
+    pearson_r         = "Pearson r",
+    spearman_r        = "Spearman r",
+    interpretation    = "Interpretation",
+    n                 = "N",
+    threat_coef       = "Threat coef",
+    threat_se         = "SE",
+    threat_p          = "p",
+    debt_coef         = "Debt coef",
+    debt_p            = "p (debt)",
+    r_squared         = "R\u00b2",
+    threat_sig        = "Threat sig.",
+    variable          = "Variable",
+    coef              = "Coef",
+    z_stat            = "z",
+    log_lik_val       = "Log-lik",
+    aic_val           = "AIC",
+    type              = "Type"
+  )
+  existing <- intersect(names(col_map), names(df))
+  names(df)[match(existing, names(df))] <- col_map[existing]
+  df
+}
+
+#' Apply standard plotly config to a plotly object
+#'
+#' Removes irrelevant modebar buttons, sets PNG export filename,
+#' and disables the plotly logo.
+#'
+#' @param p     A plotly object.
+#' @param fname Filename stem for PNG export (default "eu_defence_plot").
+#' @return The configured plotly object.
+configure_plotly <- function(p, fname = "eu_defence_plot") {
+  plotly::config(
+    p,
+    displaylogo          = FALSE,
+    modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d",
+                               "hoverClosestCartesian",
+                               "hoverCompareCartesian"),
+    toImageButtonOptions = list(
+      format   = "png",
+      filename = fname,
+      width    = 1200,
+      height   = 700,
+      scale    = 2
+    )
+  )
+}
+
 #' Get labelled country choices for Shiny selectInput widgets
 #'
 #' Returns a named character vector where names are full country names
-#' and values are ISO2 country codes.
+#' (shown in UI) and values are ISO2 country codes (sent as input$countries).
+#' deframe() maps first column -> names, second column -> values, so we put
+#' country_name first and country (ISO2) second.
 #'
 #' @param panel A data frame containing `country` and `country_name` columns.
-#' @return Named character vector of country names to ISO2 codes.
+#' @return Named character vector: names = full country name, values = ISO2 code.
 get_country_labels <- function(panel) {
   panel %>%
-    dplyr::distinct(country, country_name) %>%
+    dplyr::distinct(country_name, country) %>%
     dplyr::arrange(country_name) %>%
     tibble::deframe()
 }

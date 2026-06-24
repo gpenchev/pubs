@@ -55,8 +55,8 @@ scripts/output/data/ucdp_ged_raw.csv
 
 
 # Personal / private — not uploaded to GitHub
-methodology/models/
-models/
+#methodology/models/
+#models/
 presentation/
 abstract.txt
 pubs.Rproj

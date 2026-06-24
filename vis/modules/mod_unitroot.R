@@ -17,10 +17,12 @@ mod_unitroot_ui <- function(id) {
                      inline   = TRUE)
       )
     ),
-    plotly::plotlyOutput(ns("heatmap"), height = "420px"),
+    plotly::plotlyOutput(ns("heatmap"), height = PLOT_HEIGHT_COMPACT),
     hr(),
     h4("Summary: % stationary per variable"),
-    DT::dataTableOutput(ns("summary_table"))
+    DT::dataTableOutput(ns("summary_table")),
+    br(),
+    downloadButton(ns("dl_unitroot"), "Download CSV")
   )
 }
 
@@ -128,13 +130,13 @@ mod_unitroot_server <- function(id, unitroot_results) {
           xaxis  = list(title = "Country",  tickangle = -45),
           yaxis  = list(title = "Variable"),
           margin = list(b = 80)
-        )
+        ) %>%
+        configure_plotly(fname = "unitroot_heatmap")
     })
 
-    output$summary_table <- DT::renderDataTable({
+    summary_df <- reactive({
       df <- processed()
       req(nrow(df) > 0)
-
       df %>%
         dplyr::group_by(variable) %>%
         dplyr::summarise(
@@ -146,8 +148,21 @@ mod_unitroot_server <- function(id, unitroot_results) {
           n_missing      = sum(status == "missing",    na.rm = TRUE),
           pct_stationary = round(100 * n_stationary / pmax(n_tested, 1), 1),
           .groups        = "drop"
-        ) %>%
-        DT::datatable(options = list(pageLength = 10), rownames = FALSE)
+        )
     })
+
+    output$summary_table <- DT::renderDataTable({
+      rename_dt_cols(summary_df()) %>%
+        DT::datatable(
+          options  = list(pageLength = 10, dom = "tip"),
+          rownames = FALSE,
+          class    = "table-sm table-hover"
+        )
+    })
+
+    output$dl_unitroot <- downloadHandler(
+      filename = "unitroot_summary.csv",
+      content  = function(f) readr::write_csv(summary_df(), f)
+    )
   })
 }

@@ -14,7 +14,7 @@ load_eu_geometries <- function() {
   countries_map <- c(
     "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE",
     "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE",
-    "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT",
+    "IT", "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT",
     "RO", "SE", "SI", "SK"
   )
 
@@ -81,7 +81,8 @@ build_base_map <- function(panel,
     )
   }
 
-  var_lab <- names(get_variable_labels())[get_variable_labels() == variable]
+  all_labels <- get_map_variable_labels()
+  var_lab <- names(all_labels)[all_labels == variable]
   if (length(var_lab) == 0) var_lab <- variable
 
   popup_text <- paste0(
@@ -102,8 +103,24 @@ build_base_map <- function(panel,
   # Use .data[[variable]] via a local variable to avoid fragile get() calls
   var_sym <- variable
 
+  # Compute bounding box from the loaded geometries so the view always frames
+  # the data rather than a hardcoded centre-point. fitBounds covers the full
+  # European theatre (including Eastern conflict events near the EU border).
+  bbox <- sf::st_bbox(geo_data)
+  # Expand slightly west and south to include Western Atlantic coast and
+  # the Caucasus / Middle-East theatre that overlaps the study area.
+  view_west  <- max(as.numeric(bbox["xmin"]) - 3,  -25)
+  view_east  <- min(as.numeric(bbox["xmax"]) + 8,   50)
+  view_south <- max(as.numeric(bbox["ymin"]) - 3,   33)
+  view_north <- min(as.numeric(bbox["ymax"]) + 2,   73)
+
   leaflet::leaflet(geo_data) %>%
     leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron) %>%
+    leaflet::addScaleBar(position = "bottomleft") %>%
+    leaflet::fitBounds(
+      lng1 = view_west, lat1 = view_south,
+      lng2 = view_east, lat2 = view_north
+    ) %>%
     leaflet::addPolygons(
       fillColor   = ~pal(geo_data[[var_sym]]),
       fillOpacity = 0.75,
@@ -126,44 +143,55 @@ build_base_map <- function(panel,
       position = "bottomright",
       na.label = "No data",
       layerId  = "choropleth_legend"
-    ) %>%
-    leaflet::setView(lng = 15, lat = 54, zoom = 4)
+    )
+  # fitBounds is applied at the start of the pipe chain above; no setView needed here
 }
 
 #' Add a conflict event layer to an existing leaflet map proxy
 #'
-#' Accepts the pre-aggregated app_conflict_events.csv format:
-#'   columns: lon_grid, lat_grid, year, fatalities, n_events
-#' All events are land-contiguous (pre-filtered). The land_only argument
-#' is retained for API compatibility but has no effect on the aggregated data.
+#' Accepts the pre-aggregated CSV format (lon_grid, lat_grid, year,
+#' fatalities, n_events).  Two datasets are supported:
+#'   - ged_land  : land-contiguous events only (app_conflict_events.csv, ~787 rows)
+#'   - ged_all   : all state-based events in region (app_all_events.csv, ~34 k rows)
 #'
-#' @param map_proxy     A leaflet proxy object.
-#' @param ged_events    Data frame of aggregated conflict events.
-#' @param yr            Integer year to display.
-#' @param land_only     Ignored (all app events are land-contiguous).
+#' @param map_proxy   A leaflet proxy object.
+#' @param ged_land    Data frame of land-contiguous events. Required.
+#' @param yr          Integer year to display.
+#' @param mode        "land" (default) = land-contiguous only;
+#'                    "all"            = all events (requires ged_all).
+#' @param ged_all     Data frame of all events. Used only when mode == "all".
+#'                    If NULL and mode == "all", falls back to ged_land.
 #' @return The updated leaflet proxy.
 add_event_layer <- function(map_proxy,
-                            ged_events,
+                            ged_land,
                             yr,
-                            land_only = TRUE) {
+                            mode    = "land",
+                            ged_all = NULL) {
+
   map_proxy <- map_proxy %>%
     leaflet::clearGroup("Conflict events") %>%
     leaflet::removeControl("event_legend")
 
-  if (is.null(ged_events) || nrow(ged_events) == 0) return(map_proxy)
-
-  # Support both raw (has lon/lat) and aggregated (has lon_grid/lat_grid) formats
-  if ("lon_grid" %in% names(ged_events)) {
-    events_yr <- ged_events %>%
-      dplyr::filter(year == yr) %>%
-      dplyr::rename(lon = lon_grid, lat = lat_grid,
-                    best = fatalities)
+  # Select the right dataset
+  if (mode == "all" && !is.null(ged_all) && nrow(ged_all) > 0) {
+    active_data  <- ged_all
+    legend_label <- "All state-based conflicts (fatalities)"
+    dot_colour   <- "#F28E2B"   # orange — distinct from land-only red
   } else {
-    events_yr <- ged_events %>%
-      dplyr::filter(year == yr)
-    if (isTRUE(land_only) && "land_contiguous" %in% names(events_yr)) {
-      events_yr <- events_yr %>% dplyr::filter(land_contiguous)
-    }
+    active_data  <- ged_land
+    legend_label <- "Land-contiguous conflicts (fatalities)"
+    dot_colour   <- "#E15759"   # red — primary measure
+  }
+
+  if (is.null(active_data) || nrow(active_data) == 0) return(map_proxy)
+
+  # Normalise column names (aggregated format uses lon_grid/lat_grid)
+  events_yr <- active_data %>%
+    dplyr::filter(year == yr)
+
+  if ("lon_grid" %in% names(events_yr)) {
+    events_yr <- events_yr %>%
+      dplyr::rename(lon = lon_grid, lat = lat_grid, best = fatalities)
   }
 
   if (nrow(events_yr) == 0) return(map_proxy)
@@ -174,8 +202,9 @@ add_event_layer <- function(map_proxy,
       popup_ev = paste0(
         "<strong>Conflict cluster</strong><br/>",
         "Fatalities: ", best, "<br/>",
-        "Events: ", if ("n_events" %in% names(events_yr)) n_events else 1, "<br/>",
-        "Year: ", year
+        "Events: ",
+        if ("n_events" %in% names(events_yr)) n_events else 1L, "<br/>",
+        "Year: ", yr
       )
     )
 
@@ -185,10 +214,10 @@ add_event_layer <- function(map_proxy,
       lng         = ~lon,
       lat         = ~lat,
       radius      = ~radius,
-      color       = "#E15759",
-      fillColor   = "#E15759",
-      fillOpacity = 0.65,
-      opacity     = 0.85,
+      color       = dot_colour,
+      fillColor   = dot_colour,
+      fillOpacity = 0.55,
+      opacity     = 0.80,
       weight      = 1,
       popup       = ~popup_ev,
       label       = ~paste0(best, " fatalities"),
@@ -196,8 +225,8 @@ add_event_layer <- function(map_proxy,
     ) %>%
     leaflet::addLegend(
       position = "bottomleft",
-      colors   = "#E15759",
-      labels   = "Land-contiguous conflict (fatalities)",
+      colors   = dot_colour,
+      labels   = legend_label,
       title    = "Conflict events",
       opacity  = 0.8,
       layerId  = "event_legend"

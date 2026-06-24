@@ -95,6 +95,26 @@ app_conflict_events <- map_events %>%
 
 write_app(app_conflict_events, "app_conflict_events.csv")
 
+# app_all_events.csv — ALL state-based conflicts within the study region
+# (no land-contiguity filter), same grid/column schema as app_conflict_events.
+# Used by the map toggle "All events (incl. sea-crossing)" which lets users
+# compare the land-contiguous measure against the broader threat_score_log
+# variable. Includes Aegean/Black Sea events excluded from the main analysis.
+app_all_events <- map_events %>%
+  dplyr::mutate(
+    lon_grid = round(lon, 1),
+    lat_grid = round(lat, 1)
+  ) %>%
+  dplyr::group_by(lon_grid, lat_grid, year) %>%
+  dplyr::summarise(
+    fatalities  = sum(best, na.rm = TRUE),
+    n_events    = dplyr::n(),
+    .groups     = "drop"
+  ) %>%
+  dplyr::arrange(year, dplyr::desc(fatalities))
+
+write_app(app_all_events, "app_all_events.csv")
+
 # =============================================================================
 # BLOCK 2 — Threat & GPR summaries
 # =============================================================================

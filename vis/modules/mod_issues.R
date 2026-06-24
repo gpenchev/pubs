@@ -1,43 +1,27 @@
 mod_issues_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    # Info badge
-    tags$div(
-      style = "margin-bottom: 14px;",
-      tags$span(
-        bsicons::bs_icon("info-circle"),
-        " Select an issue, then click on a topic heading below to expand the details.",
-        style = "color: #6c757d; font-size: 0.9em;"
-      )
-    ),
-    fluidRow(
-      column(6,
-        selectInput(
-          ns("issue"),
-          "Select issue",
-          choices = c(
-            "Issue 1 — Kinetic bias (Crimea 2014, hybrid warfare)"        = "kinetic",
-            "Issue 2 — 50km sea threshold (Greece, Mediterranean)"         = "threshold",
-            "Issue 3 — Regime 1 data truncation (immigration gap)"         = "truncation",
-            "Issue 4 — GPR comparison sample bias (missing Eastern EU)"    = "gpr_bias"
-          ),
-          selected = "kinetic"
-        )
+    selectInput(
+      ns("issue"),
+      "Select issue",
+      choices = c(
+        "Issue 1 \u2014 Kinetic bias (Crimea 2014)"            = "kinetic",
+        "Issue 2 \u2014 50km sea threshold (Greece)"           = "threshold",
+        "Issue 3 \u2014 Regime 1 data truncation"              = "truncation",
+        "Issue 4 \u2014 GPR comparison sample bias"            = "gpr_bias"
       ),
-      column(6,
-        uiOutput(ns("issue_badge"))
-      )
+      selected = "kinetic"
     ),
     br(),
     # Accordion with three panels: Figure, Table, Research Notes
     bslib::accordion(
-      open     = NULL,
+      open     = "fig_panel",
       multiple = TRUE,
 
       bslib::accordion_panel(
         title = tagList(bsicons::bs_icon("graph-up"), " Figure"),
         value = "fig_panel",
-        plotly::plotlyOutput(ns("issue_plot"), height = "460px")
+        plotly::plotlyOutput(ns("issue_plot"), height = PLOT_HEIGHT_STANDARD)
       ),
 
       bslib::accordion_panel(
@@ -61,27 +45,6 @@ mod_issues_ui <- function(id) {
 
 mod_issues_server <- function(id, app_data, proj_root) {
   moduleServer(id, function(input, output, session) {
-
-    # --- Badge ----------------------------------------------------------------
-    output$issue_badge <- renderUI({
-      colour <- switch(input$issue,
-        kinetic    = "warning",
-        threshold  = "info",
-        truncation = "secondary",
-        gpr_bias   = "danger"
-      )
-      label <- switch(input$issue,
-        kinetic    = "Discussion framing — no script fix possible",
-        threshold  = "Discussion framing — country FE absorbs residual",
-        truncation = "Disclosed — Regime 1 net effect likely understated",
-        gpr_bias   = "Disclosed — UCDP advantage is conservative estimate"
-      )
-      tags$span(
-        class = paste0("badge bg-", colour),
-        style = "font-size: 0.9em; padding: 6px 10px;",
-        label
-      )
-    })
 
     # --- Figure ---------------------------------------------------------------
     output$issue_plot <- plotly::renderPlotly({
@@ -131,8 +94,11 @@ mod_issues_server <- function(id, app_data, proj_root) {
           ) +
           theme_defence()
 
-        plotly::ggplotly(p) %>%
-          plotly::layout(legend = list(orientation = "h", y = -0.2))
+        configure_plotly(
+          plotly::ggplotly(p) %>%
+            plotly::layout(legend = list(orientation = "h", y = -0.12)),
+          fname = "issue_crimea_kinetic"
+        )
 
       } else if (input$issue == "threshold") {
         df <- app_data[["app_issue2_greece"]]
@@ -163,8 +129,11 @@ mod_issues_server <- function(id, app_data, proj_root) {
           ) +
           theme_defence()
 
-        plotly::ggplotly(p) %>%
-          plotly::layout(legend = list(orientation = "h", y = -0.25))
+        configure_plotly(
+          plotly::ggplotly(p) %>%
+            plotly::layout(legend = list(orientation = "h", y = -0.12)),
+          fname = "issue_greece_threshold"
+        )
 
       } else if (input$issue == "truncation") {
         df <- app_data[["app_issue3_coverage"]]
@@ -192,7 +161,7 @@ mod_issues_server <- function(id, app_data, proj_root) {
           theme_defence() +
           ggplot2::theme(axis.text.y = ggplot2::element_text(size = 8))
 
-        plotly::ggplotly(p)
+        configure_plotly(plotly::ggplotly(p), fname = "issue_coverage_truncation")
 
       } else {
         df <- app_data[["app_issue4_gpr_coverage"]]
@@ -226,8 +195,11 @@ mod_issues_server <- function(id, app_data, proj_root) {
           theme_defence() +
           ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8))
 
-        plotly::ggplotly(p) %>%
-          plotly::layout(legend = list(orientation = "h", y = -0.3))
+        configure_plotly(
+          plotly::ggplotly(p) %>%
+            plotly::layout(legend = list(orientation = "h", y = -0.12)),
+          fname = "issue_gpr_coverage"
+        )
       }
     })
 
@@ -260,9 +232,10 @@ mod_issues_server <- function(id, app_data, proj_root) {
       )
       if (is.null(df))
         return(DT::datatable(data.frame(message = "Data unavailable")))
-      DT::datatable(df, rownames = FALSE,
-                    options = list(pageLength = 15, dom = "tip"),
-                    class   = "table-sm table-hover")
+      rename_dt_cols(df %>% dplyr::mutate(dplyr::across(where(is.numeric), ~round(.x, 4)))) %>%
+        DT::datatable(rownames = FALSE,
+                      options  = list(pageLength = 15, dom = "tip"),
+                      class    = "table-sm table-hover")
     })
 
     output$dl_issue <- downloadHandler(

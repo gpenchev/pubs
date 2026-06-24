@@ -17,7 +17,7 @@ mod_help_ui <- function(id) {
         hr(),
 
         bslib::accordion(
-          open = FALSE,
+          open = "Overview",
           multiple = TRUE,
 
           # ------------------------------------------------------------------
@@ -27,14 +27,15 @@ mod_help_ui <- function(id) {
             p(
               "The panel covers 24 NATO-EU member states plus Norway and",
               "Great Britain over the period 1995-2023 (29 years, 696 country-year",
-              "observations). The primary regression sample contains 530 observations",
-              "across 22 countries after applying sample restrictions."
+              "observations). The primary regression sample contains 529 observations",
+              "across 22 countries (517 in the primary SAR model after isolated nodes",
+              "are dropped from the block-diagonal weight matrix)."
             ),
             p(
               "The central research question is: what drives defence spending",
               "among NATO-EU member states in the post-Cold War period?",
               "The study constructs a novel threat proximity measure from",
-              "georeferenced conflict event data (UCDP GED 25.1) and estimates",
+              "georeferenced conflict event data (UCDP GED 26.1) and estimates",
               "its effect using spatial autoregressive (SAR) panel models."
             )
           ),
@@ -94,13 +95,13 @@ mod_help_ui <- function(id) {
                 tags$tr(
                   tags$td("Threat Score (log)"),
                   tags$td("All state-based conflict, spatially decayed"),
-                  tags$td("UCDP GED 25.1"),
+                  tags$td("UCDP GED 26.1"),
                   tags$td("24 countries, 1995-2023")
                 ),
                 tags$tr(
                   tags$td("Threat Score Land (log)"),
                   tags$td("Land-contiguous conflict only, spatially decayed"),
-                  tags$td("UCDP GED 25.1"),
+                  tags$td("UCDP GED 26.1"),
                   tags$td("24 countries, 1995-2023")
                 ),
                 tags$tr(
@@ -208,9 +209,12 @@ mod_help_ui <- function(id) {
                 "When enabled, circles show UCDP GED state-based conflict events",
                 "for the selected year. Circle size is proportional to",
                 "log(fatalities + 1). Red circles are land-contiguous events",
-                "(used in the primary threat measure); grey circles are",
-                "sea-separated events (excluded from the primary measure but",
-                "included in the robustness variant)."
+                "(primary threat measure, ",
+                tags$code("threat_land_log"),
+                "); orange circles are all state-based events including",
+                "sea-crossing conflicts (robustness variant, ",
+                tags$code("threat_score_log"),
+                "). Toggle between views using the Conflict events radio buttons."
               ),
               tags$li(
                 tags$strong("Countries shown:"),
@@ -225,7 +229,7 @@ mod_help_ui <- function(id) {
           # ------------------------------------------------------------------
           bslib::accordion_panel(
             title = "Tab: Scatter",
-            icon  = bsicons::bs_icon("scatter-chart"),
+            icon  = bsicons::bs_icon("crosshair"),
             p(
               "The Scatter tab shows a cross-sectional scatter plot for a",
               "selected year."
@@ -433,7 +437,7 @@ mod_help_ui <- function(id) {
           bslib::accordion_panel(
             title = "Regression Sample",
             icon  = bsicons::bs_icon("people"),
-            p("The primary regression sample contains 22 countries and 530 observations."),
+            p("The primary regression sample contains 22 countries and 529 observations (517 in the SAR model after isolated nodes are removed from the block-diagonal W matrix)."),
             tags$table(
               class = "table table-sm table-striped",
               style = "max-width: 600px;",
@@ -522,6 +526,138 @@ mod_help_ui <- function(id) {
 
           # ------------------------------------------------------------------
           bslib::accordion_panel(
+            title = "Spatial Decomposition",
+            icon  = bsicons::bs_icon("diagram-3"),
+            h4("Persistence vs diffusion: what does \u03c1 really measure?"),
+            p(
+              "The spatial autoregressive parameter \u03c1 in model M5 (SAR levels) is +0.177",
+              "(p < 0.001). This appears to show strong cross-country defence spending",
+              "diffusion — countries copy neighbours. But the picture is more nuanced."
+            ),
+            tags$table(
+              class = "table table-sm table-bordered",
+              style = "max-width: 600px;",
+              tags$thead(tags$tr(
+                tags$th("Specification"),
+                tags$th("\u03c1 estimate"),
+                tags$th("p-value"),
+                tags$th("Interpretation")
+              )),
+              tags$tbody(
+                tags$tr(
+                  tags$td("M5: Levels SAR"),
+                  tags$td("+0.177"),
+                  tags$td("< 0.001"),
+                  tags$td("Baseline spatial lag")
+                ),
+                tags$tr(
+                  tags$td("M12: Lagged DV SAR"),
+                  tags$td("+0.061"),
+                  tags$td("0.077"),
+                  tags$td("After controlling for temporal persistence")
+                ),
+                tags$tr(
+                  tags$td("FD SAR (first-difference)"),
+                  tags$td("\u22120.091"),
+                  tags$td("0.032"),
+                  tags$td("After removing persistence via first-differencing")
+                )
+              )
+            ),
+            p(
+              "The levels SAR positive \u03c1 reflects ",
+              tags$strong("long-run strategic complementarity"),
+              " in spending levels: countries with high-spending neighbours tend to",
+              " spend more themselves. This is the burden-sharing equilibrium — larger",
+              " members anchor the alliance's collective defence posture."
+            ),
+            p(
+              "The FD SAR negative \u03c1 reflects ",
+              tags$strong("short-run burden-sharing substitution"),
+              " in spending changes: when one country increases spending in a given year,",
+              " its neighbours tend to increase spending less (or reduce). This is",
+              " consistent with the public goods free-riding logic — a neighbour's",
+              " visible rearmament reduces the perceived urgency for others."
+            ),
+            p(
+              tags$strong("Conclusion:"),
+              " both results are consistent with NATO alliance dynamics. The levels result",
+              " does not contradict the FD result; they measure different time horizons of",
+              " the same strategic interdependence."
+            )
+          ),
+
+          # ------------------------------------------------------------------
+          bslib::accordion_panel(
+            title = "Gov. EU Position — Subperiod Reversal",
+            icon  = bsicons::bs_icon("arrow-left-right"),
+            h4("Why does the EU position coefficient change sign after 2014?"),
+            p(
+              "The full-sample M5 coefficient on",
+              tags$code("gov_eu_position"),
+              "is \u22120.020 (p = 0.021): pro-EU governments spend less on defence on average.",
+              "This hides a significant structural reversal across the 2014 break."
+            ),
+            tags$table(
+              class = "table table-sm table-bordered",
+              style = "max-width: 560px;",
+              tags$thead(tags$tr(
+                tags$th("Period"),
+                tags$th("Coef"),
+                tags$th("SE"),
+                tags$th("p-value"),
+                tags$th("Reading")
+              )),
+              tags$tbody(
+                tags$tr(
+                  tags$td("Pre-2014 (M10c)"),
+                  tags$td("+0.024"),
+                  tags$td("0.018"),
+                  tags$td("0.053"),
+                  tags$td("Marginally more defence spending")
+                ),
+                tags$tr(
+                  tags$td("Post-2014 (M10b)"),
+                  tags$td("\u22120.052"),
+                  tags$td("0.022"),
+                  tags$td("< 0.001"),
+                  tags$td("Significantly less defence spending")
+                ),
+                tags$tr(
+                  tags$td(tags$strong("z-test for difference")),
+                  tags$td(tags$strong("\u2014")),
+                  tags$td(tags$strong("\u2014")),
+                  tags$td(tags$strong("0.008")),
+                  tags$td(tags$strong("Significant reversal"))
+                )
+              )
+            ),
+            p(
+              tags$strong("Before 2014:"),
+              " EU membership was associated with security cooperation commitments.",
+              " Pro-EU cabinets spent marginally more on defence as part of a broader",
+              " multilateral engagement posture."
+            ),
+            p(
+              tags$strong("After 2014:"),
+              " The relevant political cleavage shifted from left\u2013right to",
+              " national sovereignty vs. European integration. Eurosceptic nationalist",
+              " governments (PiS Poland, Fidesz Hungary, Baltic nationalist coalitions)",
+              " became the primary drivers of rearmament, while pro-EU governments were",
+              " constrained by EU fiscal rules and less inclined to frame defence as a",
+              " national priority."
+            ),
+            p(
+              "The traditional left-right dimension (",
+              tags$code("gov_left_right"),
+              ") is not significant in any within-country specification. The ideologically",
+              " relevant cleavage for post-2014 defence spending is sovereignty vs.",
+              " European integration, not left vs. right."
+            )
+          ),
+
+          # ------------------------------------------------------------------
+          bslib::accordion_panel(
             title = "Citation",
             icon  = bsicons::bs_icon("journal-text"),
             p("If you use this application or the underlying data, please cite:"),
@@ -533,7 +669,7 @@ mod_help_ui <- function(id) {
             p("Data sources:"),
             tags$ul(
               tags$li(
-                "UCDP GED 25.1: Davies, S. et al. (2025). UCDP Georeferenced Event Dataset.",
+                "UCDP GED 26.1: Davies, S. et al. (2025). UCDP Georeferenced Event Dataset.",
                 a("ucdp.uu.se", href = "https://ucdp.uu.se", target = "_blank")
               ),
               tags$li(

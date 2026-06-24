@@ -24,9 +24,11 @@ mod_results_server <- function(id, proj_root, md_specs) {
         )
       })
 
+      # First panel open by default for immediate visibility
+      first_label <- if (length(md_specs) > 0) md_specs[[1]]$label else NULL
+
       tagList(
         br(),
-        # Info badge above accordion
         tags$div(
           style = "margin-bottom: 10px;",
           tags$span(
@@ -35,9 +37,8 @@ mod_results_server <- function(id, proj_root, md_specs) {
             style = "color: #6c757d; font-size: 0.9em;"
           )
         ),
-        # All panels closed by default (open = FALSE / NULL)
         do.call(bslib::accordion, c(
-          list(open = NULL, multiple = TRUE),
+          list(open = first_label, multiple = TRUE),
           panels
         ))
       )

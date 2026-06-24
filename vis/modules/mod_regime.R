@@ -17,10 +17,17 @@ mod_regime_ui <- function(id) {
         checkboxInput(ns("show_se"), "Show error bars (SE)", value = TRUE)
       )
     ),
-    plotly::plotlyOutput(ns("regime_plot"), height = "420px"),
-    hr(),
-    DT::dataTableOutput(ns("regime_table")),
-    downloadButton(ns("dl_regime"), "Download CSV")
+    plotly::plotlyOutput(ns("regime_plot"), height = PLOT_HEIGHT_COMPACT),
+    br(),
+    bslib::card(
+      bslib::card_header(
+        class = "d-flex justify-content-between align-items-center",
+        tags$span(bsicons::bs_icon("table"), " Regime effects table"),
+        downloadButton(ns("dl_regime"), "CSV",
+                       class = "btn btn-sm btn-outline-secondary")
+      ),
+      bslib::card_body(DT::dataTableOutput(ns("regime_table")))
+    )
   )
 }
 
@@ -113,8 +120,14 @@ mod_regime_server <- function(id, regime_data) {
         )
       }
 
-      plotly::ggplotly(p, tooltip = "text") %>%
-        plotly::layout(showlegend = (input$show_type == "all"))
+      configure_plotly(
+        plotly::ggplotly(p, tooltip = "text") %>%
+          plotly::layout(
+            showlegend = (input$show_type == "all"),
+            legend     = list(orientation = "h", y = -0.12)
+          ),
+        fname = "regime_effects"
+      )
     })
 
     output$regime_table <- DT::renderDataTable({
@@ -122,9 +135,10 @@ mod_regime_server <- function(id, regime_data) {
         dplyr::select(regime, label, base_coef, interaction_coef,
                       net_coef, se_net, p_interaction) %>%
         dplyr::mutate(dplyr::across(where(is.numeric), ~round(.x, 4)))
-      DT::datatable(df, rownames = FALSE,
-                    options = list(dom = "t", pageLength = 4),
-                    class   = "table-sm table-hover")
+      rename_dt_cols(df) %>%
+        DT::datatable(rownames = FALSE,
+                      options  = list(dom = "t", pageLength = 4),
+                      class    = "table-sm table-hover")
     })
 
     output$dl_regime <- downloadHandler(

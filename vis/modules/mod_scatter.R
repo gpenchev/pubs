@@ -33,7 +33,7 @@ mod_scatter_ui <- function(id) {
         checkboxInput(ns("show_labels"), "Labels", value = TRUE)
       )
     ),
-    plotly::plotlyOutput(ns("plot"), height = "500px")
+    plotly::plotlyOutput(ns("plot"), height = PLOT_HEIGHT_STANDARD)
   )
 }
 
@@ -131,10 +131,11 @@ mod_scatter_server <- function(id, panel_data) {
         gg <- gg + scale_colour_regime()
       }
 
-      plotly::ggplotly(gg, tooltip = "text") %>%
-        plotly::layout(
-          legend = list(orientation = "v", x = 1.02, y = 0.5)
-        )
+      configure_plotly(
+        plotly::ggplotly(gg, tooltip = "text") %>%
+          plotly::layout(legend = list(orientation = "h", y = -0.12)),
+        fname = "scatter_plot"
+      )
     })
   })
 }
